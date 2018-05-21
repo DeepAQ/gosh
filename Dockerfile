@@ -1,11 +1,10 @@
 # Builder container
-FROM golang:alpine AS gobuild
+FROM golang:latest AS gobuild
 
 COPY . /root/workspace/agent
 WORKDIR /root/workspace/agent
 ENV GOPATH /root/workspace/agent
 RUN set -ex \
- && apk add --no-cache git \
  && go get -u github.com/coreos/etcd/clientv3 \
  && go get -u github.com/valyala/fasthttp \
  && go get -u github.com/fatih/pool \
