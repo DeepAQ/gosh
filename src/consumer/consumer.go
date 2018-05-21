@@ -1,22 +1,24 @@
 package consumer
 
 import (
+	"bytes"
+	"encoding/binary"
+	"etcd"
 	"fmt"
 	"github.com/valyala/fasthttp"
+	"math"
 	"math/rand"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"time"
-	"etcd"
-	"bytes"
-	"encoding/binary"
-	"math"
 )
 
 var client *fasthttp.Client
 var servers [][]byte
 var serverLoad []float64
 var serverProb []float64
+var serverCount []uint32
 var total uint64
 
 func Start(opts map[string]string) {
@@ -36,6 +38,7 @@ func Start(opts map[string]string) {
 	total = uint64(len(servers))
 	serverLoad = make([]float64, total)
 	serverProb = make([]float64, total)
+	serverCount = make([]uint32, total)
 	for i := range serverProb {
 		serverProb[i] = 1.0 / float64(total)
 	}
@@ -61,6 +64,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 	for selected = 0; rand >= sum+serverProb[selected]; selected++ {
 		sum += serverProb[selected]
 	}
+	atomic.AddUint32(&serverCount[selected], 1)
 	req.SetHostBytes(servers[selected])
 
 	req.SetBody(ctx.Request.Body())
@@ -105,6 +109,6 @@ func lb() {
 			newProb[i] /= sumLoad
 		}
 		serverProb = newProb
-		fmt.Println("[LB] load:", realLoad, "prob:", newProb)
+		fmt.Println("[LB] load:", realLoad, "prob:", newProb, "count:", serverCount)
 	}
 }

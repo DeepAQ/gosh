@@ -2,13 +2,13 @@ package provider
 
 import (
 	"dubbo"
+	"etcd"
 	"fmt"
 	"github.com/fatih/pool"
 	"github.com/valyala/fasthttp"
 	"net"
 	"os"
 	"strconv"
-	"etcd"
 	"util"
 )
 

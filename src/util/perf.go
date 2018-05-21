@@ -1,11 +1,11 @@
 package util
 
 import (
-	"fmt"
-	"time"
 	"encoding/binary"
-	"math"
+	"fmt"
 	"github.com/shirou/gopsutil/load"
+	"math"
+	"time"
 )
 
 var LoadAverage float64
@@ -17,7 +17,7 @@ func PrefMonitor() {
 		if stat, err := load.Avg(); err == nil {
 			LoadAverage = stat.Load1
 			binary.BigEndian.PutUint64(LoadAverageBytes, math.Float64bits(LoadAverage))
-			fmt.Printf("[%s] cpu: %f\n", time.Now(), LoadAverage)
+			fmt.Printf("[%s] load: %f\n", time.Now(), LoadAverage)
 		}
 		time.Sleep(5 * time.Second)
 	}

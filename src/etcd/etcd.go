@@ -1,12 +1,12 @@
 package etcd
 
 import (
+	"context"
 	"fmt"
 	"github.com/coreos/etcd/clientv3"
-	"time"
-	"os"
 	"net"
-	"context"
+	"os"
+	"time"
 )
 
 func Register(etcd string, port int) error {
