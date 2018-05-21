@@ -36,11 +36,12 @@ func Start(opts map[string]string) {
 	totalServers = uint64(len(servers))
 	serverProb = make([]float64, totalServers)
 	serverCount = make([]uint32, totalServers)
-	for i := range serverProb {
-		serverProb[i] = 1.0 / float64(totalServers)
-	}
+	//for i := range serverProb {
+	//	serverProb[i] = 1.0 / float64(totalServers)
+	//}
+	//go lb()
+	lbMem()
 	rand.Seed(time.Now().UnixNano())
-	go lb()
 
 	// Listen
 	fmt.Printf("Listening on port %d\n", port)
@@ -107,4 +108,21 @@ func lb() {
 		serverProb = newProb
 		fmt.Println("[LB] load:", serverLoad, "prob:", newProb, "count:", serverCount)
 	}
+}
+
+func lbMem() {
+	sumProb := float64(0)
+	for i, server := range servers {
+		status, body, err := client.Get(nil, "http://"+string(server)+"/mem")
+		if err != nil || status != 200 {
+			serverProb[i] = 0
+		} else {
+			serverProb[i] = float64(binary.BigEndian.Uint64(body))
+		}
+		sumProb += serverProb[i]
+	}
+	for i := range serverProb {
+		serverProb[i] /= sumProb
+	}
+	fmt.Println("[LB_MEM] prob:", serverProb)
 }

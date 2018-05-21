@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/mem"
 	"time"
 )
 
@@ -16,4 +17,11 @@ func PrefMonitor() {
 		}
 		time.Sleep(5 * time.Second)
 	}
+}
+
+func TotalMem() uint64 {
+	if stat, err := mem.VirtualMemory(); err == nil {
+		return stat.Total
+	}
+	return 0
 }

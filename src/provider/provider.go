@@ -41,7 +41,7 @@ func Start(opts map[string]string) {
 	etcd.Register(opts["etcd"], port)
 
 	// Start performance monitor
-	go util.PrefMonitor()
+	//go util.PrefMonitor()
 
 	// Listen
 	fmt.Printf("Listening on port %d, dubbo port %d\n", port, dubboPort)
@@ -52,10 +52,15 @@ func Start(opts map[string]string) {
 }
 
 func handler(ctx *fasthttp.RequestCtx) {
-	if string(ctx.Path()) == "/perf" {
+	path := string(ctx.Path())
+	if path == "/perf" {
 		perfBytes := make([]byte, 8)
 		binary.BigEndian.PutUint64(perfBytes, math.Float64bits(util.LoadAverage))
 		ctx.Response.AppendBody(perfBytes)
+	} else if path == "/mem" {
+		memBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(memBytes, util.TotalMem())
+		ctx.Response.AppendBody(memBytes)
 	} else {
 		args := ctx.PostArgs()
 		inv := dubbo.Invocation{
