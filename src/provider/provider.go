@@ -28,7 +28,7 @@ func Start(opts map[string]string) {
 
 	// Create channel pool
 	var err error
-	cp, err = pool.NewChannelPool(1, 100, func() (net.Conn, error) {
+	cp, err = pool.NewChannelPool(0, 100, func() (net.Conn, error) {
 		return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dubboPort))
 	})
 	if err != nil {
