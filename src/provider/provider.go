@@ -67,6 +67,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		defer conn.Close()
 		result, err := dubbo.Invoke(&inv, conn)
 		if err != nil {
+			fmt.Fprintln(os.Stderr, "Invocation error:", err)
 			ctx.Response.SetStatusCode(500)
 		} else {
 			ctx.Response.AppendBody(result)

@@ -61,6 +61,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 	req.SetBody(ctx.Request.Body())
 	resp := fasthttp.AcquireResponse()
 	err := client.Do(req, resp)
+	fmt.Println(resp)
 	if err != nil {
 		ctx.Response.SetStatusCode(500)
 	} else {
