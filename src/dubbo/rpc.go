@@ -27,5 +27,10 @@ func Invoke(invocation *Invocation, conn net.Conn) ([]byte, error) {
 		fmt.Fprintln(os.Stderr, "Failed to read body:", err)
 		return nil, err
 	}
-	return body[3 : bodyLen-2], nil
+	var i, j uint32
+	for i = 1; body[i] == '\r' || body[i] == '\n'; i++ {
+	}
+	for j = bodyLen - 1; body[j] == '\r' || body[j] == '\n'; j-- {
+	}
+	return body[i : j+1], nil
 }
