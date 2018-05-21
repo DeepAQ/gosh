@@ -2,10 +2,12 @@ package provider
 
 import (
 	"dubbo"
+	"encoding/binary"
 	"etcd"
 	"fmt"
 	"github.com/fatih/pool"
 	"github.com/valyala/fasthttp"
+	"math"
 	"net"
 	"os"
 	"strconv"
@@ -50,31 +52,35 @@ func Start(opts map[string]string) {
 }
 
 func handler(ctx *fasthttp.RequestCtx) {
-	args := ctx.PostArgs()
-	inv := dubbo.Invocation{
-		DubboVersion:     "2.0.0",
-		ServiceName:      string(args.Peek("interface")),
-		ServiceVersion:   "",
-		MethodName:       string(args.Peek("method")),
-		MethodParamTypes: string(args.Peek("parameterTypesString")),
-		MethodArgs:       string(args.Peek("parameter")),
-		Attachments:      make(map[string]string),
-	}
-	inv.Attachments["path"] = inv.ServiceName
-	conn, err := cp.Get()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to get connection:", err)
-		ctx.Response.SetStatusCode(500)
+	if string(ctx.Path()) == "/perf" {
+		perfBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(perfBytes, math.Float64bits(util.LoadAverage))
+		ctx.Response.AppendBody(perfBytes)
 	} else {
-		defer conn.Close()
-		result, err := dubbo.Invoke(&inv, conn)
+		args := ctx.PostArgs()
+		inv := dubbo.Invocation{
+			DubboVersion:     "2.0.0",
+			ServiceName:      string(args.Peek("interface")),
+			ServiceVersion:   "",
+			MethodName:       string(args.Peek("method")),
+			MethodParamTypes: string(args.Peek("parameterTypesString")),
+			MethodArgs:       string(args.Peek("parameter")),
+			Attachments:      make(map[string]string),
+		}
+		inv.Attachments["path"] = inv.ServiceName
+		conn, err := cp.Get()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Invocation error:", err)
+			fmt.Fprintln(os.Stderr, "Failed to get connection:", err)
 			ctx.Response.SetStatusCode(500)
 		} else {
-			ctx.Response.AppendBody(result)
-			ctx.Response.AppendBody([]byte{0})
-			ctx.Response.AppendBody(util.LoadAverageBytes)
+			defer conn.Close()
+			result, err := dubbo.Invoke(&inv, conn)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "Invocation error:", err)
+				ctx.Response.SetStatusCode(500)
+			} else {
+				ctx.Response.AppendBody(result)
+			}
 		}
 	}
 }

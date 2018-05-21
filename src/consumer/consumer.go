@@ -1,7 +1,6 @@
 package consumer
 
 import (
-	"bytes"
 	"encoding/binary"
 	"etcd"
 	"fmt"
@@ -16,10 +15,9 @@ import (
 
 var client *fasthttp.Client
 var servers [][]byte
-var serverLoad []float64
 var serverProb []float64
 var serverCount []uint32
-var total uint64
+var totalServers uint64
 
 func Start(opts map[string]string) {
 	port, _ := strconv.Atoi(opts["port"])
@@ -35,12 +33,11 @@ func Start(opts map[string]string) {
 	if err != nil {
 		return
 	}
-	total = uint64(len(servers))
-	serverLoad = make([]float64, total)
-	serverProb = make([]float64, total)
-	serverCount = make([]uint32, total)
+	totalServers = uint64(len(servers))
+	serverProb = make([]float64, totalServers)
+	serverCount = make([]uint32, totalServers)
 	for i := range serverProb {
-		serverProb[i] = 1.0 / float64(total)
+		serverProb[i] = 1.0 / float64(totalServers)
 	}
 	rand.Seed(time.Now().UnixNano())
 	go lb()
@@ -75,40 +72,39 @@ func handler(ctx *fasthttp.RequestCtx) {
 		ctx.Response.SetStatusCode(500)
 	} else {
 		ctx.Response.SetStatusCode(resp.StatusCode())
-		if resp.StatusCode() == 200 {
-			body := resp.Body()
-			index := bytes.IndexByte(body, 0)
-			serverLoad[selected] = math.Float64frombits(binary.BigEndian.Uint64(body[index+1:]))
-			ctx.Response.SetBody(body[:index])
-		}
+		ctx.Response.SetBody(resp.Body())
 	}
 }
 
 func lb() {
-	realLoad := make([]float64, total)
-	newProb := make([]float64, total)
+	serverLoad := make([]float64, totalServers)
+	newProb := make([]float64, totalServers)
 	for {
 		time.Sleep(5 * time.Second)
 		max := 0
-		for i := range serverLoad {
-			realLoad[i] = serverLoad[i]
-			serverLoad[i] = 1
-			if realLoad[i] < 0.01 {
-				realLoad[i] = 0.01
+		for i, server := range servers {
+			status, body, err := client.Get(nil, "http://"+string(server)+"/perf")
+			if err != nil || status != 200 {
+				serverLoad[i] = 1
+			} else {
+				serverLoad[i] = math.Float64frombits(binary.BigEndian.Uint64(body))
 			}
-			if i > 0 && realLoad[i] > realLoad[max] {
+			if serverLoad[i] < 0.01 {
+				serverLoad[i] = 0.01
+			}
+			if i > 0 && serverLoad[i] > serverLoad[max] {
 				max = i
 			}
 		}
 		sumLoad := float64(0)
 		for i := range newProb {
-			newProb[i] = serverProb[i] * realLoad[max] / realLoad[i]
+			newProb[i] = serverProb[i] * serverLoad[max] / serverLoad[i]
 			sumLoad += newProb[i]
 		}
 		for i := range newProb {
 			newProb[i] /= sumLoad
 		}
 		serverProb = newProb
-		fmt.Println("[LB] load:", realLoad, "prob:", newProb, "count:", serverCount)
+		fmt.Println("[LB] load:", serverLoad, "prob:", newProb, "count:", serverCount)
 	}
 }
