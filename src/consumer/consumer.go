@@ -2,19 +2,22 @@ package consumer
 
 import (
 	"fmt"
-	"strconv"
 	"github.com/valyala/fasthttp"
-	"os"
-	"github.com/coreos/etcd/clientv3"
-	"time"
-	"context"
 	"math/rand"
-	"sync/atomic"
+	"os"
+	"strconv"
+	"time"
+	"etcd"
+	"bytes"
+	"encoding/binary"
+	"math"
 )
 
 var client *fasthttp.Client
 var servers [][]byte
-var current, total uint64
+var serverCpu []float64
+var serverLoad []float64
+var total uint64
 
 func Start(opts map[string]string) {
 	port, _ := strconv.Atoi(opts["port"])
@@ -25,28 +28,19 @@ func Start(opts map[string]string) {
 
 	client = &fasthttp.Client{}
 
-	etcd := opts["etcd"]
-	fmt.Printf("Querying from etcd %s\n", etcd)
-	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   []string{etcd},
-		DialTimeout: 5 * time.Second,
-	})
+	var err error
+	servers, err = etcd.Query(opts["etcd"])
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to create etcd client:", err)
 		return
 	}
-	resp, err := cli.Get(context.TODO(), "dubbomesh/", clientv3.WithPrefix())
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to query etcd:", err)
-		return
-	}
-	fmt.Println("Providers:", resp.Kvs)
-	total = uint64(len(resp.Kvs))
-	servers = make([][]byte, total)
-	for i, kv := range resp.Kvs {
-		servers[i] = kv.Value
+	total = uint64(len(servers))
+	serverCpu = make([]float64, total)
+	serverLoad = make([]float64, total)
+	for i := range serverLoad {
+		serverLoad[i] = 1.0 / float64(total)
 	}
 	rand.Seed(time.Now().UnixNano())
+	go lb()
 
 	// Listen
 	fmt.Printf("Listening on port %d\n", port)
@@ -60,7 +54,15 @@ func handler(ctx *fasthttp.RequestCtx) {
 	req := fasthttp.AcquireRequest()
 	ctx.Request.Header.CopyTo(&req.Header)
 	req.Header.SetMethod("POST")
-	req.SetHostBytes(servers[atomic.AddUint64(&current, 1) % total])
+	// Pick a server
+	rand := rand.Float64()
+	sum := float64(0)
+	var selected int
+	for selected = 0; rand >= sum + serverLoad[selected]; selected++ {
+		sum += serverLoad[selected]
+	}
+	req.SetHostBytes(servers[selected])
+
 	req.SetBody(ctx.Request.Body())
 	resp := fasthttp.AcquireResponse()
 	err := client.Do(req, resp)
@@ -69,6 +71,39 @@ func handler(ctx *fasthttp.RequestCtx) {
 		ctx.Response.SetStatusCode(500)
 	} else {
 		ctx.Response.SetStatusCode(resp.StatusCode())
-		ctx.Response.SetBody(resp.Body())
+		if resp.StatusCode() == 200 {
+			body := resp.Body()
+			index := bytes.IndexByte(body, 0)
+			serverCpu[selected] = math.Float64frombits(binary.BigEndian.Uint64(body[index+1:]))
+			ctx.Response.SetBody(body[:index])
+		}
+	}
+}
+
+func lb() {
+	realCpu := make([]float64, total)
+	newLoad := make([]float64, total)
+	for {
+		time.Sleep(5 * time.Second)
+		max := 0
+		for i := range serverCpu {
+			realCpu[i] = serverCpu[i]
+			if realCpu[i] < 0.01 {
+				realCpu[i] = 0.01
+			}
+			if i > 0 && realCpu[i] > realCpu[max] {
+				max = i
+			}
+		}
+		sumLoad := float64(0)
+		for i := range newLoad {
+			newLoad[i] = serverLoad[i] * realCpu[max] / realCpu[i]
+			sumLoad += newLoad[i]
+		}
+		for i := range newLoad {
+			newLoad[i] /= sumLoad
+		}
+		serverLoad = newLoad
+		fmt.Println("[LB] cpu:", realCpu, "load:", newLoad)
 	}
 }

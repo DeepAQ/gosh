@@ -2,25 +2,25 @@ package dubbo
 
 import (
 	"io"
-	"encoding/json"
 	"sync/atomic"
+	"util"
 )
 
 var reqId uint64
 
 func writeRequest(w io.Writer, inv *Invocation) error {
-	data := append(toJson(inv.DubboVersion), '\r', '\n')
-	data = append(data, toJson(inv.ServiceName)...)
+	data := append(util.ToJson(inv.DubboVersion), '\r', '\n')
+	data = append(data, util.ToJson(inv.ServiceName)...)
 	data = append(data, '\r', '\n')
-	data = append(data, toJson(inv.ServiceVersion)...)
+	data = append(data, util.ToJson(inv.ServiceVersion)...)
 	data = append(data, '\r', '\n')
-	data = append(data, toJson(inv.MethodName)...)
+	data = append(data, util.ToJson(inv.MethodName)...)
 	data = append(data, '\r', '\n')
-	data = append(data, toJson(inv.MethodParamTypes)...)
+	data = append(data, util.ToJson(inv.MethodParamTypes)...)
 	data = append(data, '\r', '\n')
-	data = append(data, toJson(inv.MethodArgs)...)
+	data = append(data, util.ToJson(inv.MethodArgs)...)
 	data = append(data, '\r', '\n')
-	data = append(data, toJson(inv.Attachments)...)
+	data = append(data, util.ToJson(inv.Attachments)...)
 	data = append(data, '\r', '\n')
 	h := Header{
 		Req:           true,
@@ -38,9 +38,4 @@ func writeRequest(w io.Writer, inv *Invocation) error {
 		return err
 	}
 	return nil
-}
-
-func toJson(v interface{}) []byte {
-	result, _ := json.Marshal(v)
-	return result
 }

@@ -1,8 +1,8 @@
 package dubbo
 
 import (
-	"io"
 	"encoding/binary"
+	"io"
 )
 
 type Header struct {

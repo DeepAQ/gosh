@@ -1,18 +1,15 @@
 package provider
 
 import (
-	"fmt"
-	"github.com/valyala/fasthttp"
 	"dubbo"
+	"fmt"
 	"github.com/fatih/pool"
+	"github.com/valyala/fasthttp"
 	"net"
 	"os"
-	"github.com/coreos/etcd/clientv3"
-	"time"
-	"context"
 	"strconv"
-	"github.com/shirou/gopsutil/mem"
-	"github.com/shirou/gopsutil/load"
+	"etcd"
+	"util"
 )
 
 var cp pool.Pool
@@ -39,10 +36,10 @@ func Start(opts map[string]string) {
 	}
 
 	// Register to etcd
-	register(opts["etcd"], port)
+	etcd.Register(opts["etcd"], port)
 
 	// Start performance monitor
-	go monitor()
+	go util.PrefMonitor()
 
 	// Listen
 	fmt.Printf("Listening on port %d, dubbo port %d\n", port, dubboPort)
@@ -76,67 +73,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 			ctx.Response.SetStatusCode(500)
 		} else {
 			ctx.Response.AppendBody(result)
+			ctx.Response.AppendBody([]byte{0})
+			ctx.Response.AppendBody(util.CpuUsageBytes)
 		}
-	}
-}
-
-func register(etcd string, port int) {
-	fmt.Printf("Registering to etcd %s\n", etcd)
-	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   []string{etcd},
-		DialTimeout: 5 * time.Second,
-	})
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to create etcd client:", err)
-		return
-	}
-	addresses, _ := net.InterfaceAddrs()
-	ip := ""
-	for _, addr := range addresses {
-		if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.IsGlobalUnicast() && ipnet.IP.To4() != nil {
-			ip = ipnet.IP.String()
-		}
-	}
-	if ip == "" {
-		fmt.Fprintln(os.Stderr, "Failed to get IP address")
-		return
-	}
-	ipport := fmt.Sprintf("%s:%d", ip, port)
-	lease := clientv3.NewLease(cli)
-	grant, err := lease.Grant(context.TODO(), 10)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to grant lease from etcd:", err)
-		return
-	}
-	_, err = cli.Put(context.TODO(), "dubbomesh/" + ipport, ipport, clientv3.WithLease(grant.ID))
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to put to etcd:", err)
-		return
-	}
-	fmt.Println("Register success:", ipport)
-	go func() {
-		for {
-			time.Sleep(5 * time.Second)
-			//fmt.Println("Heartbeat ...")
-			_, err = lease.KeepAliveOnce(context.TODO(), grant.ID)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "Failed to send heartbeat:", err)
-				return
-			}
-		}
-	}()
-}
-
-func monitor() {
-	for {
-		fmt.Printf("[%s] ", time.Now())
-		if load, err := load.Avg(); err == nil {
-			fmt.Printf("load: %f %f %f  |", load.Load1, load.Load5, load.Load15)
-		}
-		if vm, err := mem.VirtualMemory(); err == nil {
-			fmt.Printf("mem: %d / %d", vm.Used, vm.Total)
-		}
-		fmt.Println()
-		time.Sleep(15 * time.Second)
 	}
 }

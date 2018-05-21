@@ -1,11 +1,11 @@
 package dubbo
 
 import (
-	"fmt"
-	"os"
-	"errors"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"net"
+	"os"
 )
 
 func Invoke(invocation *Invocation, conn net.Conn) ([]byte, error) {

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"provider"
+	"consumer"
 	"fmt"
 	"os"
+	"provider"
 	"strings"
-	"consumer"
 )
 
 func main() {
