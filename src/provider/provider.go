@@ -74,7 +74,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		} else {
 			ctx.Response.AppendBody(result)
 			ctx.Response.AppendBody([]byte{0})
-			ctx.Response.AppendBody(util.CpuUsageBytes)
+			ctx.Response.AppendBody(util.LoadAverageBytes)
 		}
 	}
 }

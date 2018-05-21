@@ -15,8 +15,8 @@ import (
 
 var client *fasthttp.Client
 var servers [][]byte
-var serverCpu []float64
 var serverLoad []float64
+var serverProb []float64
 var total uint64
 
 func Start(opts map[string]string) {
@@ -34,10 +34,10 @@ func Start(opts map[string]string) {
 		return
 	}
 	total = uint64(len(servers))
-	serverCpu = make([]float64, total)
 	serverLoad = make([]float64, total)
-	for i := range serverLoad {
-		serverLoad[i] = 1.0 / float64(total)
+	serverProb = make([]float64, total)
+	for i := range serverProb {
+		serverProb[i] = 1.0 / float64(total)
 	}
 	rand.Seed(time.Now().UnixNano())
 	go lb()
@@ -58,8 +58,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 	rand := rand.Float64()
 	sum := float64(0)
 	var selected int
-	for selected = 0; rand >= sum + serverLoad[selected]; selected++ {
-		sum += serverLoad[selected]
+	for selected = 0; rand >= sum+serverProb[selected]; selected++ {
+		sum += serverProb[selected]
 	}
 	req.SetHostBytes(servers[selected])
 
@@ -74,36 +74,37 @@ func handler(ctx *fasthttp.RequestCtx) {
 		if resp.StatusCode() == 200 {
 			body := resp.Body()
 			index := bytes.IndexByte(body, 0)
-			serverCpu[selected] = math.Float64frombits(binary.BigEndian.Uint64(body[index+1:]))
+			serverLoad[selected] = math.Float64frombits(binary.BigEndian.Uint64(body[index+1:]))
 			ctx.Response.SetBody(body[:index])
 		}
 	}
 }
 
 func lb() {
-	realCpu := make([]float64, total)
-	newLoad := make([]float64, total)
+	realLoad := make([]float64, total)
+	newProb := make([]float64, total)
 	for {
 		time.Sleep(5 * time.Second)
 		max := 0
-		for i := range serverCpu {
-			realCpu[i] = serverCpu[i]
-			if realCpu[i] < 0.01 {
-				realCpu[i] = 0.01
+		for i := range serverLoad {
+			realLoad[i] = serverLoad[i]
+			serverLoad[i] = 1
+			if realLoad[i] < 0.01 {
+				realLoad[i] = 0.01
 			}
-			if i > 0 && realCpu[i] > realCpu[max] {
+			if i > 0 && realLoad[i] > realLoad[max] {
 				max = i
 			}
 		}
 		sumLoad := float64(0)
-		for i := range newLoad {
-			newLoad[i] = serverLoad[i] * realCpu[max] / realCpu[i]
-			sumLoad += newLoad[i]
+		for i := range newProb {
+			newProb[i] = serverProb[i] * realLoad[max] / realLoad[i]
+			sumLoad += newProb[i]
 		}
-		for i := range newLoad {
-			newLoad[i] /= sumLoad
+		for i := range newProb {
+			newProb[i] /= sumLoad
 		}
-		serverLoad = newLoad
-		fmt.Println("[LB] cpu:", realCpu, "load:", newLoad)
+		serverProb = newProb
+		fmt.Println("[LB] load:", realLoad, "prob:", newProb)
 	}
 }

@@ -3,29 +3,21 @@ package util
 import (
 	"fmt"
 	"time"
-	"github.com/shirou/gopsutil/cpu"
 	"encoding/binary"
 	"math"
+	"github.com/shirou/gopsutil/load"
 )
 
-var lastIdle, lastTotal, CpuUsage float64
-var CpuUsageBytes []byte
+var LoadAverage float64
+var LoadAverageBytes []byte
 
 func PrefMonitor() {
-	CpuUsageBytes = make([]byte, 8)
+	LoadAverageBytes = make([]byte, 8)
 	for {
-		if stat, err := cpu.Times(false); err == nil && len(stat) > 0 {
-			curStat := stat[0]
-			totalTicks := curStat.User + curStat.Nice + curStat.System + curStat.Idle + curStat.Iowait + curStat.Irq + curStat.Softirq
-			if lastTotal > 0 {
-				deltaTicks := totalTicks - lastTotal
-				deltaIdle := curStat.Idle - lastIdle
-				CpuUsage = 1.0 - deltaIdle/deltaTicks
-				binary.BigEndian.PutUint64(CpuUsageBytes, math.Float64bits(CpuUsage))
-				fmt.Printf("[%s] cpu: %f\n", time.Now(), CpuUsage)
-			}
-			lastTotal = totalTicks
-			lastIdle = curStat.Idle
+		if stat, err := load.Avg(); err == nil {
+			LoadAverage = stat.Load1
+			binary.BigEndian.PutUint64(LoadAverageBytes, math.Float64bits(LoadAverage))
+			fmt.Printf("[%s] cpu: %f\n", time.Now(), LoadAverage)
 		}
 		time.Sleep(5 * time.Second)
 	}
