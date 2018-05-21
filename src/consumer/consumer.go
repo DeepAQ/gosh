@@ -9,10 +9,12 @@ import (
 	"time"
 	"context"
 	"math/rand"
+	"sync/atomic"
 )
 
 var client *fasthttp.Client
 var servers [][]byte
+var current, total uint64
 
 func Start(opts map[string]string) {
 	port, _ := strconv.Atoi(opts["port"])
@@ -39,7 +41,8 @@ func Start(opts map[string]string) {
 		return
 	}
 	fmt.Println("Providers:", resp.Kvs)
-	servers = make([][]byte, len(resp.Kvs))
+	total = uint64(len(resp.Kvs))
+	servers = make([][]byte, total)
 	for i, kv := range resp.Kvs {
 		servers[i] = kv.Value
 	}
@@ -57,11 +60,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 	req := fasthttp.AcquireRequest()
 	ctx.Request.Header.CopyTo(&req.Header)
 	req.Header.SetMethod("POST")
-	req.SetHostBytes(servers[rand.Intn(len(servers))])
+	req.SetHostBytes(servers[atomic.AddUint64(&current, 1) % total])
 	req.SetBody(ctx.Request.Body())
 	resp := fasthttp.AcquireResponse()
 	err := client.Do(req, resp)
-	fmt.Println(resp)
+	//fmt.Println(resp)
 	if err != nil {
 		ctx.Response.SetStatusCode(500)
 	} else {

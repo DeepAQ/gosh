@@ -5,9 +5,10 @@ COPY . /root/workspace/agent
 WORKDIR /root/workspace/agent
 ENV GOPATH /root/workspace/agent
 RUN set -ex \
- && go get -u github.com/coreos/etcd/clientv3 \
- && go get -u github.com/valyala/fasthttp \
- && go get -u github.com/fatih/pool \
+ && go get github.com/coreos/etcd/clientv3 \
+ && go get github.com/valyala/fasthttp \
+ && go get github.com/fatih/pool \
+ && go get github.com/shirou/gopsutil \
  && go build -o gosh ./src \
  && ls -la
 

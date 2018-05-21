@@ -11,6 +11,8 @@ import (
 	"time"
 	"context"
 	"strconv"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/load"
 )
 
 var cp pool.Pool
@@ -28,7 +30,7 @@ func Start(opts map[string]string) {
 
 	// Create channel pool
 	var err error
-	cp, err = pool.NewChannelPool(0, 100, func() (net.Conn, error) {
+	cp, err = pool.NewChannelPool(0, 256, func() (net.Conn, error) {
 		return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dubboPort))
 	})
 	if err != nil {
@@ -38,6 +40,9 @@ func Start(opts map[string]string) {
 
 	// Register to etcd
 	register(opts["etcd"], port)
+
+	// Start performance monitor
+	go monitor()
 
 	// Listen
 	fmt.Printf("Listening on port %d, dubbo port %d\n", port, dubboPort)
@@ -120,4 +125,18 @@ func register(etcd string, port int) {
 			}
 		}
 	}()
+}
+
+func monitor() {
+	for {
+		fmt.Printf("[%s] ", time.Now())
+		if load, err := load.Avg(); err == nil {
+			fmt.Printf("load: %f %f %f  |", load.Load1, load.Load5, load.Load15)
+		}
+		if vm, err := mem.VirtualMemory(); err == nil {
+			fmt.Printf("mem: %d / %d", vm.Used, vm.Total)
+		}
+		fmt.Println()
+		time.Sleep(15 * time.Second)
+	}
 }
