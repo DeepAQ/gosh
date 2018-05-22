@@ -18,7 +18,7 @@ func lbRT() {
 	newProb := make([]float64, totalServers)
 	go func() {
 		for {
-			time.Sleep(2 * time.Second)
+			time.Sleep(5 * time.Second)
 			fmt.Print("[LB_RT] count:", serverRTCount)
 
 			min := 0
