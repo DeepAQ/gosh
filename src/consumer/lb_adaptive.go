@@ -21,7 +21,7 @@ func lbAdaptive() {
 
 			sumPredict := uint32(0)
 			for i, count := range serverRTCount {
-				predict[i] = count + count - lastCount[i]
+				predict[i] = count + count - lastCount[i] + 1
 				if predict[i] < count {
 					predict[i] = count
 				}
