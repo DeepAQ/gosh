@@ -12,18 +12,18 @@ func lbAdaptive() {
 	serverRTCount = make([]uint32, totalServers)
 
 	lastCount := make([]uint32, totalServers)
-	predict := make([]uint32, totalServers)
+	predict := make([]int, totalServers)
 	newProb := make([]float64, totalServers)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
 			fmt.Print("[LB_Adaptive] count:", serverRTCount)
 
-			sumPredict := uint32(0)
+			sumPredict := 0
 			for i, count := range serverRTCount {
-				predict[i] = count + count - lastCount[i] + 1
-				if predict[i] < count {
-					predict[i] = count
+				predict[i] = int(count+count) - int(lastCount[i]) + 1
+				if predict[i] < int(count) {
+					predict[i] = int(count)
 				}
 				lastCount[i] = count
 				sumPredict += predict[i]
