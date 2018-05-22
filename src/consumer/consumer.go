@@ -1,11 +1,9 @@
 package consumer
 
 import (
-	"encoding/binary"
 	"etcd"
 	"fmt"
 	"github.com/valyala/fasthttp"
-	"math"
 	"math/rand"
 	"os"
 	"strconv"
@@ -16,7 +14,6 @@ import (
 var client *fasthttp.Client
 var servers [][]byte
 var serverProb []float64
-var serverCount []uint32
 var totalServers uint64
 
 func Start(opts map[string]string) {
@@ -35,13 +32,13 @@ func Start(opts map[string]string) {
 	}
 	totalServers = uint64(len(servers))
 	serverProb = make([]float64, totalServers)
-	serverCount = make([]uint32, totalServers)
-	//for i := range serverProb {
-	//	serverProb[i] = 1.0 / float64(totalServers)
-	//}
-	//go lb()
-	lbMem()
+	for i := range serverProb {
+		serverProb[i] = 1.0 / float64(totalServers)
+	}
 	rand.Seed(time.Now().UnixNano())
+	// Load balancing method start
+	lbRT()
+	// Load balancing method end
 
 	// Listen
 	fmt.Printf("Listening on port %d\n", port)
@@ -59,15 +56,20 @@ func handler(ctx *fasthttp.RequestCtx) {
 	rand := rand.Float64()
 	sum := float64(0)
 	var selected int
-	for selected = 0; rand >= sum+serverProb[selected]; selected++ {
+	prob := serverProb
+	for selected = 0; rand >= sum+prob[selected]; selected++ {
 		sum += serverProb[selected]
 	}
-	atomic.AddUint32(&serverCount[selected], 1)
 	req.SetHostBytes(servers[selected])
 
 	req.SetBody(ctx.Request.Body())
 	resp := fasthttp.AcquireResponse()
+
+	beginTime := time.Now().UnixNano()
 	err := client.Do(req, resp)
+	rtTime := time.Now().UnixNano() - beginTime
+	atomic.AddInt64(&serverRT[selected], rtTime/1E6)
+	atomic.AddUint32(&serverRTCount[selected], 1)
 	//fmt.Println(resp)
 	if err != nil {
 		ctx.Response.SetStatusCode(500)
@@ -75,54 +77,4 @@ func handler(ctx *fasthttp.RequestCtx) {
 		ctx.Response.SetStatusCode(resp.StatusCode())
 		ctx.Response.SetBody(resp.Body())
 	}
-}
-
-func lb() {
-	serverLoad := make([]float64, totalServers)
-	newProb := make([]float64, totalServers)
-	for {
-		time.Sleep(5 * time.Second)
-		max := 0
-		for i, server := range servers {
-			status, body, err := client.Get(nil, "http://"+string(server)+"/perf")
-			if err != nil || status != 200 {
-				serverLoad[i] = 1
-			} else {
-				serverLoad[i] = math.Float64frombits(binary.BigEndian.Uint64(body))
-			}
-			if serverLoad[i] < 0.01 {
-				serverLoad[i] = 0.01
-			}
-			if i > 0 && serverLoad[i] > serverLoad[max] {
-				max = i
-			}
-		}
-		sumLoad := float64(0)
-		for i := range newProb {
-			newProb[i] = serverProb[i] * serverLoad[max] / serverLoad[i]
-			sumLoad += newProb[i]
-		}
-		for i := range newProb {
-			newProb[i] /= sumLoad
-		}
-		serverProb = newProb
-		fmt.Println("[LB] load:", serverLoad, "prob:", newProb, "count:", serverCount)
-	}
-}
-
-func lbMem() {
-	sumProb := float64(0)
-	for i, server := range servers {
-		status, body, err := client.Get(nil, "http://"+string(server)+"/mem")
-		if err != nil || status != 200 {
-			serverProb[i] = 0
-		} else {
-			serverProb[i] = float64(binary.BigEndian.Uint64(body))
-		}
-		sumProb += serverProb[i]
-	}
-	for i := range serverProb {
-		serverProb[i] /= sumProb
-	}
-	fmt.Println("[LB_MEM] prob:", serverProb)
 }
