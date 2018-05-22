@@ -22,17 +22,22 @@ func lbAdaptive() {
 			sumPredict := uint32(0)
 			for i, count := range serverRTCount {
 				predict[i] = count + count - lastCount[i]
+				if predict[i] < count {
+					predict[i] = count
+				}
 				lastCount[i] = count
 				sumPredict += predict[i]
 				atomic.AddUint32(&serverRTCount[i], ^(count - 1))
 			}
 			fmt.Print(" predict:", predict)
 
-			for i := range newProb {
-				newProb[i] = float64(predict[i]) / float64(sumPredict)
+			if sumPredict > 0 {
+				for i := range newProb {
+					newProb[i] = float64(predict[i]) / float64(sumPredict)
+				}
+				serverProb = newProb
 			}
-			serverProb = newProb
-			fmt.Println(" prob:", newProb)
+			fmt.Println(" prob:", serverProb)
 		}
 	}()
 }
