@@ -6,9 +6,6 @@ import (
 	"time"
 )
 
-var serverRT []int64
-var serverRTCount []uint32
-
 func lbRT() {
 	fmt.Println("Using load balancing method: Response Time")
 	serverRT = make([]int64, totalServers)
