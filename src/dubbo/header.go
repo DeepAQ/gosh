@@ -37,3 +37,27 @@ func (h Header) Write(w io.Writer) error {
 	}
 	return nil
 }
+
+func (h Header) ToBytes() []byte {
+	flags := h.Serialization
+	if h.Event {
+		flags += 1 << 5
+	}
+	if h.TwoWay {
+		flags += 1 << 6
+	}
+	if h.Req {
+		flags += 1 << 7
+	}
+	bytes := []byte{0xda, 0xbb, flags, h.Status}
+
+	reqIdBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(reqIdBytes, h.RequestID)
+	bytes = append(bytes, reqIdBytes...)
+
+	dataLenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(dataLenBytes, h.DataLength)
+	bytes = append(bytes, dataLenBytes...)
+
+	return bytes
+}

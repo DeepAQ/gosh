@@ -37,7 +37,7 @@ func Start(opts map[string]string) {
 	}
 	rand.Seed(time.Now().UnixNano())
 	// Load balancing method start
-	lbRT2()
+	lbMem()
 	// Load balancing method end
 
 	// Listen
@@ -68,8 +68,12 @@ func handler(ctx *fasthttp.RequestCtx) {
 	beginTime := time.Now().UnixNano()
 	err := client.Do(req, resp)
 	rtTime := time.Now().UnixNano() - beginTime
-	atomic.AddInt64(&serverRT[selected], rtTime/1E6)
-	atomic.AddUint32(&serverRTCount[selected], 1)
+	if serverRT != nil {
+		atomic.AddInt64(&serverRT[selected], rtTime/1E6)
+	}
+	if serverRTCount != nil {
+		atomic.AddUint32(&serverRTCount[selected], 1)
+	}
 	//fmt.Println(resp)
 	if err != nil {
 		ctx.Response.SetStatusCode(500)
