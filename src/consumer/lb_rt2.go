@@ -18,8 +18,8 @@ func lbRT2() {
 			time.Sleep(5 * time.Second)
 			fmt.Print("[LB_RT2] count:", serverRTCount)
 
-			min := 0
-			max := 0
+			minRT := -1
+			maxRT := -1
 			for i := range avgRT {
 				rt := serverRT[i]
 				count := serverRTCount[i]
@@ -28,15 +28,14 @@ func lbRT2() {
 					if avgRT[i] < 1 {
 						avgRT[i] = 1
 					}
-				} else {
-					avgRT[i] = 1
-				}
-				if i > 0 {
-					if avgRT[i] < avgRT[min] {
-						min = i
-					} else if avgRT[i] > avgRT[max] {
-						max = i
+					if minRT < 0 || avgRT[i] < avgRT[minRT] {
+						minRT = i
 					}
+					if maxRT < 0 || avgRT[i] > avgRT[maxRT] {
+						maxRT = i
+					}
+				} else {
+					avgRT[i] = 0
 				}
 				atomic.AddInt64(&serverRT[i], -rt)
 				atomic.AddUint32(&serverRTCount[i], ^(count - 1))
@@ -44,13 +43,22 @@ func lbRT2() {
 			fmt.Print(" avgRT:", avgRT)
 
 			sumProb := float64(0)
+			minProb := 0
 			for i := range newProb {
-				newProb[i] = serverProb[i] * avgRT[min] / avgRT[i]
-				if avgRT[min] > avgRT[max]*9/10 && min == i {
-					newProb[i] *= 2
-					fmt.Print(" [up] ")
+				if avgRT[i] > 0 {
+					newProb[i] = serverProb[i] * avgRT[minRT] / avgRT[i]
+				} else {
+					newProb[i] = serverProb[i]
+				}
+				if i > 0 && newProb[i] < newProb[minProb] {
+					minProb = i
 				}
 				sumProb += newProb[i]
+			}
+			if avgRT[minRT] > avgRT[maxRT]*9/10 && minRT != maxRT {
+				newProb[minProb] *= 2
+				sumProb += newProb[minProb]
+				fmt.Print(" [up] ")
 			}
 			for i := range newProb {
 				newProb[i] /= sumProb
