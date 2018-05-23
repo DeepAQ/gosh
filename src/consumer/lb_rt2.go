@@ -20,6 +20,7 @@ func lbRT2() {
 
 			minRT := -1
 			maxRT := -1
+			all := true
 			for i := range avgRT {
 				rt := serverRT[i]
 				count := serverRTCount[i]
@@ -36,6 +37,7 @@ func lbRT2() {
 					}
 				} else {
 					avgRT[i] = 0
+					all = false
 				}
 				atomic.AddInt64(&serverRT[i], -rt)
 				atomic.AddUint32(&serverRTCount[i], ^(count - 1))
@@ -55,7 +57,7 @@ func lbRT2() {
 				}
 				sumProb += newProb[i]
 			}
-			if avgRT[minRT] > avgRT[maxRT]*9/10 && minRT != maxRT {
+			if all && avgRT[minRT] > avgRT[maxRT]*9/10 {
 				newProb[minProb] *= 2
 				sumProb += newProb[minProb]
 				fmt.Print(" [up] ")
