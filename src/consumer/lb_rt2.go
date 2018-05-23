@@ -58,8 +58,8 @@ func lbRT2() {
 				sumProb += newProb[i]
 			}
 			if all && avgRT[minRT] > avgRT[maxRT]*9/10 {
-				newProb[minProb] *= 2
 				sumProb += newProb[minProb]
+				newProb[minProb] *= 2
 				fmt.Print(" [up] ")
 			}
 			for i := range newProb {
