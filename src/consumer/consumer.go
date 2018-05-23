@@ -37,7 +37,7 @@ func Start(opts map[string]string) {
 	}
 	rand.Seed(time.Now().UnixNano())
 	// Load balancing method start
-	lbAdaptive()
+	lbAdaptive2()
 	// Load balancing method end
 
 	// Listen
