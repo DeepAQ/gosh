@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"time"
 	"util"
 )
 
@@ -34,8 +35,11 @@ func Start(opts map[string]string) {
 	//	fmt.Fprintln(os.Stderr, "Failed to create channel pool:", err)
 	//	return
 	//}
-	if err := dubbo.Connect(fmt.Sprintf("127.0.0.1:%d", dubboPort)); err != nil {
-		return
+	for {
+		if err := dubbo.Connect(fmt.Sprintf("127.0.0.1:%d", dubboPort)); err == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
 	}
 
 	// Register to etcd
