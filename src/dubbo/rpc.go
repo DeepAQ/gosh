@@ -20,7 +20,7 @@ func Invoke(inv *Invocation) []byte {
 	}
 	respChan := make(chan []byte)
 	respMap.Store(newReqId, respChan)
-	newReq[int(newReqId)%len(newReq)] <- append(header.ToBytes(), invBytes...)
+	newReq <- append(header.ToBytes(), invBytes...)
 	resp := <-respChan
 	close(respChan)
 	respMap.Delete(newReqId)

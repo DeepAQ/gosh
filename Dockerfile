@@ -7,6 +7,7 @@ ENV GOPATH /root/workspace/agent
 RUN set -ex \
  && go get github.com/coreos/etcd/clientv3 \
  && go get github.com/valyala/fasthttp \
+ && go get github.com/fatih/pool \
  && go get golang.org/x/sys/unix \
  && go get github.com/shirou/gopsutil \
  && go build -o gosh ./src \
