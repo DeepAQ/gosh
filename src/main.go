@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+import (
+	"net/http"
+	_ "net/http/pprof"
+)
+
 func main() {
 	fmt.Print("Args: ")
 	fmt.Println(os.Args)
@@ -18,6 +23,12 @@ func main() {
 			opts[arg[1:i]] = arg[i+1:]
 		}
 	}
+
+	// Profiling
+	go func() {
+		http.ListenAndServe(":8000", nil)
+	}()
+
 	switch opts["type"] {
 	case "provider":
 		provider.Start(opts)
