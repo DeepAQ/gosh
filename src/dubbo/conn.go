@@ -93,7 +93,7 @@ func Connect(remote string) error {
 			reqId := binary.BigEndian.Uint64(header[4:12])
 			respChan, _ := respMap.Load(reqId)
 			if respChan != nil {
-				reflect.ValueOf(respChan).Send(reflect.ValueOf(&result))
+				reflect.ValueOf(respChan).Send(reflect.ValueOf(result))
 			}
 		}
 	}()
