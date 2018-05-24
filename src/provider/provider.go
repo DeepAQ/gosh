@@ -63,23 +63,20 @@ func handler(ctx *fasthttp.RequestCtx) {
 		ctx.Response.AppendBody(memBytes)
 	} else {
 		args := ctx.PostArgs()
-		inv := dubbo.Invocation{
+		inv := &dubbo.Invocation{
 			DubboVersion:     "2.0.0",
-			ServiceName:      string(args.Peek("interface")),
-			ServiceVersion:   "",
-			MethodName:       string(args.Peek("method")),
-			MethodParamTypes: string(args.Peek("parameterTypesString")),
-			MethodArgs:       string(args.Peek("parameter")),
-			Attachments:      make(map[string]string),
+			ServiceName:      args.Peek("interface"),
+			MethodName:       args.Peek("method"),
+			MethodParamTypes: args.Peek("parameterTypesString"),
+			MethodArgs:       args.Peek("parameter"),
 		}
-		inv.Attachments["path"] = inv.ServiceName
 		conn, err := cp.Get()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Failed to get connection:", err)
 			ctx.Response.SetStatusCode(500)
 		} else {
 			defer conn.Close()
-			result, err := dubbo.Invoke(&inv, conn)
+			result, err := dubbo.Invoke(inv, conn)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "Invocation error:", err)
 				ctx.Response.SetStatusCode(500)

@@ -1,30 +1,61 @@
 package dubbo
 
-import "util"
+import (
+	"bytes"
+	"util"
+)
 
 type Invocation struct {
 	DubboVersion     string
-	ServiceName      string
-	ServiceVersion   string
-	MethodName       string
-	MethodParamTypes string
-	MethodArgs       string
+	ServiceName      []byte
+	ServiceVersion   []byte
+	MethodName       []byte
+	MethodParamTypes []byte
+	MethodArgs       []byte
 	Attachments      map[string]string
 }
 
 func (inv Invocation) ToBytes() []byte {
-	data := append(util.ToJson(inv.DubboVersion), '\r', '\n')
-	data = append(data, util.ToJson(inv.ServiceName)...)
-	data = append(data, '\r', '\n')
-	data = append(data, util.ToJson(inv.ServiceVersion)...)
-	data = append(data, '\r', '\n')
-	data = append(data, util.ToJson(inv.MethodName)...)
-	data = append(data, '\r', '\n')
-	data = append(data, util.ToJson(inv.MethodParamTypes)...)
-	data = append(data, '\r', '\n')
-	data = append(data, util.ToJson(inv.MethodArgs)...)
-	data = append(data, '\r', '\n')
-	data = append(data, util.ToJson(inv.Attachments)...)
-	data = append(data, '\r', '\n')
-	return data
+	buf := bytes.Buffer{}
+	buf.WriteByte('"')
+	buf.WriteString(inv.DubboVersion)
+	buf.WriteByte('"')
+	buf.WriteByte('\n')
+
+	buf.WriteByte('"')
+	buf.Write(inv.ServiceName)
+	buf.WriteByte('"')
+	buf.WriteByte('\n')
+
+	if inv.ServiceVersion != nil {
+		buf.WriteByte('"')
+		buf.Write(inv.ServiceVersion)
+		buf.WriteByte('"')
+		buf.WriteByte('\n')
+	} else {
+		buf.WriteString("\"\"\n")
+	}
+
+	buf.WriteByte('"')
+	buf.Write(inv.MethodName)
+	buf.WriteByte('"')
+	buf.WriteByte('\n')
+
+	buf.WriteByte('"')
+	buf.Write(inv.MethodParamTypes)
+	buf.WriteByte('"')
+	buf.WriteByte('\n')
+
+	buf.WriteByte('"')
+	buf.Write(inv.MethodArgs)
+	buf.WriteByte('"')
+	buf.WriteByte('\n')
+
+	if inv.Attachments != nil {
+		buf.Write(util.ToJson(inv.Attachments))
+		buf.WriteByte('\n')
+	} else {
+		buf.WriteString("null\n")
+	}
+	return buf.Bytes()
 }
