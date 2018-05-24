@@ -13,6 +13,11 @@ import (
 var respMap sync.Map
 var newReq chan []byte
 
+type Response struct {
+	Success bool
+	Body    []byte
+}
+
 func Connect(remote string) error {
 	conn, err := net.Dial("tcp", remote)
 	if err != nil {
@@ -39,6 +44,8 @@ func Connect(remote string) error {
 		for {
 			if _, err := conn.Read(header); err != nil {
 				fmt.Fprintln(os.Stderr, "Failed to read header:", err)
+				conn.Close()
+				conn, _ = net.Dial("tcp", remote)
 				continue
 			}
 			//fmt.Print("<- ")
@@ -46,6 +53,9 @@ func Connect(remote string) error {
 			//	fmt.Printf("%02x ", byte)
 			//}
 			//fmt.Println()
+
+			result := &Response{Success: true}
+
 			bodyLen := int(binary.BigEndian.Uint32(header[12:]))
 			var body []byte
 			if bodyLen > 0 {
@@ -56,13 +66,20 @@ func Connect(remote string) error {
 						read += i
 					} else {
 						fmt.Fprintln(os.Stderr, "Failed to read body:", err)
+						conn.Close()
+						conn, _ = net.Dial("tcp", remote)
+						continue
 					}
 				}
 			}
 
+			if header[0] != 0xda || header[1] != 0xbb {
+				fmt.Fprintln(os.Stderr, "Bad magic:", header[0], header[1])
+				result.Success = false
+			}
 			if header[3] != 20 {
 				fmt.Fprintln(os.Stderr, "Server respond with status", header[3])
-				continue
+				result.Success = false
 			}
 			if bodyLen > 0 {
 				var i, j int
@@ -70,13 +87,13 @@ func Connect(remote string) error {
 				}
 				for j = bodyLen - 1; body[j] == '\r' || body[j] == '\n'; j-- {
 				}
-				body = body[i : j+1]
+				result.Body = body[i : j+1]
 			}
 
 			reqId := binary.BigEndian.Uint64(header[4:12])
 			respChan, _ := respMap.Load(reqId)
 			if respChan != nil {
-				reflect.ValueOf(respChan).Send(reflect.ValueOf(body))
+				reflect.ValueOf(respChan).Send(reflect.ValueOf(&result))
 			}
 		}
 	}()

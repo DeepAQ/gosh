@@ -6,7 +6,7 @@ import (
 
 var reqId uint64
 
-func Invoke(inv *Invocation) []byte {
+func Invoke(inv *Invocation) *Response {
 	invBytes := inv.ToBytes()
 	newReqId := atomic.AddUint64(&reqId, 1)
 	header := Header{
@@ -18,7 +18,7 @@ func Invoke(inv *Invocation) []byte {
 		RequestID:     newReqId,
 		DataLength:    uint32(len(invBytes)),
 	}
-	respChan := make(chan []byte)
+	respChan := make(chan *Response)
 	respMap.Store(newReqId, respChan)
 	newReq <- append(header.ToBytes(), invBytes...)
 	resp := <-respChan

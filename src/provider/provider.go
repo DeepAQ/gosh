@@ -79,11 +79,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 		}
 		inv.Attachments["path"] = inv.ServiceName
 		result := dubbo.Invoke(&inv)
-		if result == nil {
-			fmt.Fprintln(os.Stderr, "Invocation error")
+		if result == nil || !result.Success {
+			fmt.Fprintln(os.Stderr, "Invocation failed")
 			ctx.Response.SetStatusCode(500)
 		} else {
-			ctx.Response.AppendBody(result)
+			ctx.Response.AppendBody(result.Body)
 		}
 	}
 }
