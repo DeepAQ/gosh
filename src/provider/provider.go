@@ -5,15 +5,16 @@ import (
 	"encoding/binary"
 	"etcd"
 	"fmt"
+	"github.com/fatih/pool"
 	"github.com/valyala/fasthttp"
 	"math"
+	"net"
 	"os"
 	"strconv"
-	"time"
 	"util"
 )
 
-//var cp pool.Pool
+var cp pool.Pool
 
 func Start(opts map[string]string) {
 	port, _ := strconv.Atoi(opts["port"])
@@ -27,19 +28,13 @@ func Start(opts map[string]string) {
 	fmt.Println("Starting provider agent ...")
 
 	// Create channel pool
-	//var err error
-	//cp, err = pool.NewChannelPool(0, 200, func() (net.Conn, error) {
-	//	return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dubboPort))
-	//})
-	//if err != nil {
-	//	fmt.Fprintln(os.Stderr, "Failed to create channel pool:", err)
-	//	return
-	//}
-	for {
-		if err := dubbo.Connect(fmt.Sprintf("127.0.0.1:%d", dubboPort), 8); err == nil {
-			break
-		}
-		time.Sleep(1 * time.Second)
+	var err error
+	cp, err = pool.NewChannelPool(0, 200, func() (net.Conn, error) {
+		return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dubboPort))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to create channel pool:", err)
+		return
 	}
 
 	// Register to etcd
@@ -78,12 +73,19 @@ func handler(ctx *fasthttp.RequestCtx) {
 			Attachments:      make(map[string]string),
 		}
 		inv.Attachments["path"] = inv.ServiceName
-		result := dubbo.Invoke(&inv)
-		if result == nil || !result.Success {
-			fmt.Fprintln(os.Stderr, "Invocation failed")
+		conn, err := cp.Get()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Failed to get connection:", err)
 			ctx.Response.SetStatusCode(500)
 		} else {
-			ctx.Response.AppendBody(result.Body)
+			defer conn.Close()
+			result, err := dubbo.Invoke(&inv, conn)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "Invocation error:", err)
+				ctx.Response.SetStatusCode(500)
+			} else {
+				ctx.Response.AppendBody(result)
+			}
 		}
 	}
 }
