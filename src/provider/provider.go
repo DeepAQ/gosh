@@ -36,7 +36,7 @@ func Start(opts map[string]string) {
 	//	return
 	//}
 	for {
-		if err := dubbo.Connect(fmt.Sprintf("127.0.0.1:%d", dubboPort)); err == nil {
+		if err := dubbo.Connect(fmt.Sprintf("127.0.0.1:%d", dubboPort), 8); err == nil {
 			break
 		}
 		time.Sleep(1 * time.Second)
