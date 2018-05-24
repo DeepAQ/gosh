@@ -18,7 +18,8 @@ func writeRequest(w io.Writer, inv *Invocation) error {
 		RequestID:     atomic.AddUint64(&reqId, 1),
 		DataLength:    uint32(len(data)),
 	}
-	data = append(h.ToBytes(), data...)
+	header := h.ToBytes()
+	data = append(header[:], data...)
 	if _, err := w.Write(data); err != nil {
 		return err
 	}

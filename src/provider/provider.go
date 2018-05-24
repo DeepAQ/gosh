@@ -54,13 +54,13 @@ func Start(opts map[string]string) {
 func handler(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	if path == "/perf" {
-		perfBytes := make([]byte, 8)
-		binary.BigEndian.PutUint64(perfBytes, math.Float64bits(util.LoadAverage))
-		ctx.Response.AppendBody(perfBytes)
+		var perfBytes [8]byte
+		binary.BigEndian.PutUint64(perfBytes[:], math.Float64bits(util.LoadAverage))
+		ctx.Response.AppendBody(perfBytes[:])
 	} else if path == "/mem" {
-		memBytes := make([]byte, 8)
-		binary.BigEndian.PutUint64(memBytes, util.TotalMem())
-		ctx.Response.AppendBody(memBytes)
+		var memBytes [8]byte
+		binary.BigEndian.PutUint64(memBytes[:], util.TotalMem())
+		ctx.Response.AppendBody(memBytes[:])
 	} else {
 		args := ctx.PostArgs()
 		inv := &dubbo.Invocation{

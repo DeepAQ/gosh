@@ -13,8 +13,8 @@ func Invoke(invocation *Invocation, conn net.Conn) ([]byte, error) {
 		fmt.Fprintln(os.Stderr, "Failed to write:", err)
 		return nil, err
 	}
-	header := make([]byte, 16)
-	if _, err := conn.Read(header); err != nil {
+	var header [16]byte
+	if _, err := conn.Read(header[:]); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to read header:", err)
 		return nil, err
 	}

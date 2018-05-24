@@ -14,7 +14,7 @@ type Header struct {
 	DataLength    uint32
 }
 
-func (h Header) ToBytes() []byte {
+func (h Header) ToBytes() [16]byte {
 	flags := h.Serialization
 	if h.Event {
 		flags += 1 << 5
@@ -26,7 +26,7 @@ func (h Header) ToBytes() []byte {
 		flags += 1 << 7
 	}
 
-	bytes := make([]byte, 16)
+	var bytes [16]byte
 	bytes[0] = 0xda
 	bytes[1] = 0xbb
 	bytes[2] = flags
