@@ -2,7 +2,6 @@ package dubbo
 
 import (
 	"encoding/binary"
-	"io"
 )
 
 type Header struct {
@@ -15,7 +14,7 @@ type Header struct {
 	DataLength    uint32
 }
 
-func (h Header) Write(w io.Writer) error {
+func (h Header) ToBytes() []byte {
 	flags := h.Serialization
 	if h.Event {
 		flags += 1 << 5
@@ -26,14 +25,13 @@ func (h Header) Write(w io.Writer) error {
 	if h.Req {
 		flags += 1 << 7
 	}
-	if _, err := w.Write([]byte{0xda, 0xbb, flags, h.Status}); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, h.RequestID); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, h.DataLength); err != nil {
-		return err
-	}
-	return nil
+
+	bytes := make([]byte, 16)
+	bytes[0] = 0xda
+	bytes[1] = 0xbb
+	bytes[2] = flags
+	bytes[3] = h.Status
+	binary.BigEndian.PutUint64(bytes[4:12], h.RequestID)
+	binary.BigEndian.PutUint32(bytes[12:16], h.DataLength)
+	return bytes
 }
