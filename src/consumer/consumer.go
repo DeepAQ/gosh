@@ -72,6 +72,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		atomic.AddUint32(&invokeCount[selected], 1)
 	}
 	//fmt.Println(resp)
+	ctx.Response.Header.Add("Connection", "keep-alive")
 	if err != nil {
 		ctx.Response.SetStatusCode(500)
 	} else {

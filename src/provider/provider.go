@@ -2,16 +2,13 @@ package provider
 
 import (
 	"dubbo"
-	"encoding/binary"
 	"etcd"
 	"fmt"
 	"github.com/fatih/pool"
 	"github.com/valyala/fasthttp"
-	"math"
 	"net"
 	"os"
 	"strconv"
-	"util"
 )
 
 var cp pool.Pool
@@ -41,7 +38,7 @@ func Start(opts map[string]string) {
 	etcd.Register(opts["etcd"], port)
 
 	// Start performance monitor
-	go util.PrefMonitor()
+	//go util.PrefMonitor()
 
 	// Listen
 	fmt.Printf("Listening on port %d, dubbo port %d\n", port, dubboPort)
@@ -52,37 +49,37 @@ func Start(opts map[string]string) {
 }
 
 func handler(ctx *fasthttp.RequestCtx) {
-	path := string(ctx.Path())
-	if path == "/perf" {
-		var perfBytes [8]byte
-		binary.BigEndian.PutUint64(perfBytes[:], math.Float64bits(util.LoadAverage))
-		ctx.Response.AppendBody(perfBytes[:])
-	} else if path == "/mem" {
-		var memBytes [8]byte
-		binary.BigEndian.PutUint64(memBytes[:], util.TotalMem())
-		ctx.Response.AppendBody(memBytes[:])
+	//path := string(ctx.Path())
+	//if path == "/perf" {
+	//	var perfBytes [8]byte
+	//	binary.BigEndian.PutUint64(perfBytes[:], math.Float64bits(util.LoadAverage))
+	//	ctx.Response.AppendBody(perfBytes[:])
+	//} else if path == "/mem" {
+	//	var memBytes [8]byte
+	//	binary.BigEndian.PutUint64(memBytes[:], util.TotalMem())
+	//	ctx.Response.AppendBody(memBytes[:])
+	//} else {
+	args := ctx.PostArgs()
+	inv := &dubbo.Invocation{
+		DubboVersion:     "2.0.0",
+		ServiceName:      args.Peek("interface"),
+		MethodName:       args.Peek("method"),
+		MethodParamTypes: args.Peek("parameterTypesString"),
+		MethodArgs:       args.Peek("parameter"),
+	}
+	conn, err := cp.Get()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to get connection:", err)
+		ctx.Response.SetStatusCode(500)
 	} else {
-		args := ctx.PostArgs()
-		inv := &dubbo.Invocation{
-			DubboVersion:     "2.0.0",
-			ServiceName:      args.Peek("interface"),
-			MethodName:       args.Peek("method"),
-			MethodParamTypes: args.Peek("parameterTypesString"),
-			MethodArgs:       args.Peek("parameter"),
-		}
-		conn, err := cp.Get()
+		defer conn.Close()
+		result, err := dubbo.Invoke(inv, conn)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Failed to get connection:", err)
+			fmt.Fprintln(os.Stderr, "Invocation error:", err)
 			ctx.Response.SetStatusCode(500)
 		} else {
-			defer conn.Close()
-			result, err := dubbo.Invoke(inv, conn)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "Invocation error:", err)
-				ctx.Response.SetStatusCode(500)
-			} else {
-				ctx.Response.AppendBody(result)
-			}
+			ctx.Response.AppendBody(result)
 		}
 	}
+	//}
 }

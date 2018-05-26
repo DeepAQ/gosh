@@ -3,14 +3,11 @@ package main
 import (
 	"consumer"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"provider"
 	"strings"
-)
-
-import (
-	"net/http"
-	_ "net/http/pprof"
 )
 
 func main() {
