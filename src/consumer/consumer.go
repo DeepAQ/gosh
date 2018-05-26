@@ -11,11 +11,6 @@ import (
 	"time"
 )
 
-var client *fasthttp.Client
-var servers [][]byte
-var serverProb []float64
-var totalServers uint64
-
 func Start(opts map[string]string) {
 	port, _ := strconv.Atoi(opts["port"])
 	if port <= 0 {
@@ -49,9 +44,10 @@ func Start(opts map[string]string) {
 }
 
 func handler(ctx *fasthttp.RequestCtx) {
+	handlerBegin := time.Now().UnixNano()
 	req := fasthttp.AcquireRequest()
-	ctx.Request.Header.CopyTo(&req.Header)
-	req.Header.SetMethod("POST")
+	resp := fasthttp.AcquireResponse()
+
 	// Pick a server
 	rand := rand.Float64()
 	sum := float64(0)
@@ -62,17 +58,18 @@ func handler(ctx *fasthttp.RequestCtx) {
 	}
 	req.SetHostBytes(servers[selected])
 
+	// Prepare request
+	req.Header.SetMethod("POST")
 	req.SetBody(ctx.Request.Body())
-	resp := fasthttp.AcquireResponse()
 
-	beginTime := time.Now().UnixNano()
+	serverBegin := time.Now().UnixNano()
 	err := client.Do(req, resp)
-	rtTime := time.Now().UnixNano() - beginTime
-	if serverRT != nil {
-		atomic.AddInt64(&serverRT[selected], rtTime/1E6)
+	serverRT := time.Now().UnixNano() - serverBegin
+	if invokeRT != nil {
+		atomic.AddInt64(&invokeRT[selected], serverRT/1E3)
 	}
-	if serverRTCount != nil {
-		atomic.AddUint32(&serverRTCount[selected], 1)
+	if invokeCount != nil {
+		atomic.AddUint32(&invokeCount[selected], 1)
 	}
 	//fmt.Println(resp)
 	if err != nil {
@@ -81,4 +78,6 @@ func handler(ctx *fasthttp.RequestCtx) {
 		ctx.Response.SetStatusCode(resp.StatusCode())
 		ctx.Response.SetBody(resp.Body())
 	}
+	handlerRT := time.Now().UnixNano() - handlerBegin
+	atomic.AddInt64(&consumerRT, handlerRT/1E3)
 }

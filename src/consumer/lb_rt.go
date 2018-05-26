@@ -8,20 +8,22 @@ import (
 
 func lbRT() {
 	fmt.Println("Using load balancing method: Response Time")
-	serverRT = make([]int64, totalServers)
-	serverRTCount = make([]uint32, totalServers)
+	invokeRT = make([]int64, totalServers)
+	invokeCount = make([]uint32, totalServers)
 
 	avgRT := make([]float64, totalServers)
 	newProb := make([]float64, totalServers)
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
-			fmt.Print("[LB_RT] count:", serverRTCount)
+			fmt.Print("[LB_RT] count:", invokeCount)
 
 			min := 0
+			totalInvokes := uint32(0)
 			for i := range avgRT {
-				rt := serverRT[i]
-				count := serverRTCount[i]
+				rt := invokeRT[i]
+				count := invokeCount[i]
+				totalInvokes += count
 				if count > 0 {
 					avgRT[i] = float64(rt) / float64(count)
 					if avgRT[i] < 1 {
@@ -33,10 +35,11 @@ func lbRT() {
 				if i > 0 && avgRT[i] < avgRT[min] {
 					min = i
 				}
-				atomic.AddInt64(&serverRT[i], -rt)
-				atomic.AddUint32(&serverRTCount[i], ^(count - 1))
+				atomic.AddInt64(&invokeRT[i], -rt)
+				atomic.AddUint32(&invokeCount[i], ^(count - 1))
 			}
-			fmt.Print(" avgRT:", avgRT)
+			fmt.Print(" avgRT:", avgRT, " consumerRT:", float64(consumerRT)/float64(totalInvokes))
+			consumerRT = 0
 
 			sumProb := float64(0)
 			for i := range newProb {
