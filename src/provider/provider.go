@@ -8,7 +8,6 @@ import (
 	"github.com/fatih/pool"
 	"github.com/valyala/fasthttp"
 	"net"
-	"os"
 	"strconv"
 )
 
@@ -31,7 +30,7 @@ func Start(opts map[string]string) {
 		return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dubboPort))
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to create channel pool:", err)
+		fmt.Println("Failed to create channel pool:", err)
 		return
 	}
 
@@ -44,7 +43,7 @@ func Start(opts map[string]string) {
 	// Listen
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to listen:", err)
+		fmt.Println("Failed to listen:", err)
 		return
 	}
 	defer listener.Close()
@@ -52,7 +51,7 @@ func Start(opts map[string]string) {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Failed to accept new connection:", err)
+			fmt.Println("Failed to accept new connection:", err)
 		}
 		go rawHandler(conn)
 	}
@@ -66,7 +65,7 @@ func rawHandler(conn net.Conn) {
 		for {
 			i, err := conn.Read(data[limit:])
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "Failed to read from client:", err)
+				fmt.Println("Failed to read from client:", err)
 				return
 			}
 			limit += i
@@ -80,7 +79,7 @@ func rawHandler(conn net.Conn) {
 			i2 := i1 + 1 + bytes.IndexByte(data[i1+1:], 0xff)
 			i3 := i2 + 1 + bytes.IndexByte(data[i2+1:], 0xff)
 			if i1 < 0 || i2 < 0 || i3 < 0 {
-				fmt.Fprintln(os.Stderr, "bad request")
+				fmt.Println("bad request")
 				return
 			}
 
@@ -93,11 +92,11 @@ func rawHandler(conn net.Conn) {
 			}
 			sConn, err := cp.Get()
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "Failed to get connection:", err)
+				fmt.Println("Failed to get connection:", err)
 			} else {
 				result, err := dubbo.Invoke(inv, sConn)
 				if err != nil {
-					fmt.Fprintln(os.Stderr, "Invocation error:", err)
+					fmt.Println("Invocation error:", err)
 				} else {
 					conn.Write(result)
 				}
@@ -128,13 +127,13 @@ func handler(ctx *fasthttp.RequestCtx) {
 	}
 	conn, err := cp.Get()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to get connection:", err)
+		fmt.Println("Failed to get connection:", err)
 		ctx.Response.SetStatusCode(500)
 	} else {
 		defer conn.Close()
 		result, err := dubbo.Invoke(inv, conn)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Invocation error:", err)
+			fmt.Println("Invocation error:", err)
 			ctx.Response.SetStatusCode(500)
 		} else {
 			ctx.Response.AppendBody(result)

@@ -5,17 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 )
 
 func Invoke(invocation *Invocation, conn net.Conn) ([]byte, error) {
 	if err := writeRequest(conn, invocation); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to write:", err)
+		fmt.Println("Failed to write:", err)
 		return nil, err
 	}
 	var header [16]byte
 	if _, err := conn.Read(header[:]); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to read header:", err)
+		fmt.Println("Failed to read header:", err)
 		return nil, err
 	}
 	bodyLen := int(binary.BigEndian.Uint32(header[12:]))
@@ -27,7 +26,7 @@ func Invoke(invocation *Invocation, conn net.Conn) ([]byte, error) {
 			if i, err := conn.Read(body); err == nil {
 				read += i
 			} else {
-				fmt.Fprintln(os.Stderr, "Failed to read body:", err)
+				fmt.Println("Failed to read body:", err)
 				return nil, err
 			}
 		}

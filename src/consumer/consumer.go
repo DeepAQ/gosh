@@ -8,7 +8,6 @@ import (
 	"github.com/valyala/fasthttp"
 	"math/rand"
 	"net"
-	"os"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -43,7 +42,7 @@ func Start(opts map[string]string) {
 	// Listen
 	fmt.Printf("Listening on port %d\n", port)
 	if err := fasthttp.ListenAndServe(fmt.Sprintf(":%d", port), handler); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to listen:", err)
+		fmt.Println("Failed to listen:", err)
 		return
 	}
 }
@@ -76,13 +75,13 @@ func handler(ctx *fasthttp.RequestCtx) {
 
 	conn, err := serverPool[selected].Get()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to get connection:", err)
+		fmt.Println("Failed to get connection:", err)
 		ctx.Response.SetStatusCode(500)
 		return
 	}
 	serverBegin := time.Now().UnixNano()
 	if _, err := conn.Write(buf.Bytes()); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to write:", err)
+		fmt.Println("Failed to write:", err)
 		ctx.Response.SetStatusCode(500)
 		conn.Close()
 		return
@@ -90,7 +89,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 	var result [1024]byte
 	limit, err := conn.Read(result[:])
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to read:", err)
+		fmt.Println("Failed to read:", err)
 		ctx.Response.SetStatusCode(500)
 		conn.Close()
 		return

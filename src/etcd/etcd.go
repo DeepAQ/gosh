@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/coreos/etcd/clientv3"
 	"net"
-	"os"
 	"time"
 )
 
@@ -16,7 +15,7 @@ func Register(etcd string, port int) error {
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to create etcd client:", err)
+		fmt.Println("Failed to create etcd client:", err)
 		return err
 	}
 	addresses, _ := net.InterfaceAddrs()
@@ -27,19 +26,19 @@ func Register(etcd string, port int) error {
 		}
 	}
 	if ip == "" {
-		fmt.Fprintln(os.Stderr, "Failed to get IP address")
+		fmt.Println("Failed to get IP address")
 		return err
 	}
 	ipport := fmt.Sprintf("%s:%d", ip, port)
 	lease := clientv3.NewLease(cli)
 	grant, err := lease.Grant(context.TODO(), 10)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to grant lease from etcd:", err)
+		fmt.Println("Failed to grant lease from etcd:", err)
 		return err
 	}
 	_, err = cli.Put(context.TODO(), "dubbomesh/"+ipport, ipport, clientv3.WithLease(grant.ID))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to put to etcd:", err)
+		fmt.Println("Failed to put to etcd:", err)
 		return err
 	}
 	fmt.Println("Register success:", ipport)
@@ -49,7 +48,7 @@ func Register(etcd string, port int) error {
 			//fmt.Println("Heartbeat ...")
 			_, err = lease.KeepAliveOnce(context.TODO(), grant.ID)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "Failed to send heartbeat:", err)
+				fmt.Println("Failed to send heartbeat:", err)
 			}
 		}
 	}()
@@ -63,12 +62,12 @@ func Query(etcd string) ([][]byte, error) {
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to create etcd client:", err)
+		fmt.Println("Failed to create etcd client:", err)
 		return nil, err
 	}
 	resp, err := cli.Get(context.TODO(), "dubbomesh/", clientv3.WithPrefix())
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to query etcd:", err)
+		fmt.Println("Failed to query etcd:", err)
 		return nil, err
 	}
 	fmt.Println("Providers:", resp.Kvs)
