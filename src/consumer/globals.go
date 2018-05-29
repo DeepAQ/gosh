@@ -1,10 +1,9 @@
 package consumer
 
-import "github.com/valyala/fasthttp"
-
-var client *fasthttp.Client
+import "github.com/fatih/pool"
 
 var servers [][]byte
+var serverPool []pool.Pool
 var serverProb []float64
 var totalServers uint64
 
