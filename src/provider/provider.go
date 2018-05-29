@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"bytes"
 	"dubbo"
 	"etcd"
 	"fmt"
@@ -41,68 +40,10 @@ func Start(opts map[string]string) {
 	//go util.PrefMonitor()
 
 	// Listen
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
+	fmt.Printf("Listening on port %d, dubbo port %d\n", port, dubboPort)
+	if err := fasthttp.ListenAndServe(fmt.Sprintf(":%d", port), handler); err != nil {
 		fmt.Println("Failed to listen:", err)
 		return
-	}
-	defer listener.Close()
-	fmt.Printf("Listening on port %d, dubbo port %d\n", port, dubboPort)
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Println("Failed to accept new connection:", err)
-		}
-		go rawHandler(conn)
-	}
-}
-
-func rawHandler(conn net.Conn) {
-	defer conn.Close()
-	for {
-		var data [1024]byte
-		limit := 0
-		for {
-			i, err := conn.Read(data[limit:])
-			if err != nil {
-				fmt.Println("Failed to read from client:", err)
-				return
-			}
-			limit += i
-			if data[limit-2] == 0xbe && data[limit-1] == 0xef {
-				break
-			}
-		}
-
-		go func() {
-			i1 := bytes.IndexByte(data[:], 0xff)
-			i2 := i1 + 1 + bytes.IndexByte(data[i1+1:], 0xff)
-			i3 := i2 + 1 + bytes.IndexByte(data[i2+1:], 0xff)
-			if i1 < 0 || i2 < 0 || i3 < 0 {
-				fmt.Println("bad request")
-				return
-			}
-
-			inv := &dubbo.Invocation{
-				DubboVersion:     "2.0.0",
-				ServiceName:      data[2:i1],
-				MethodName:       data[i1+1 : i2],
-				MethodParamTypes: data[i2+1 : i3],
-				MethodArgs:       data[i3+1 : limit-2],
-			}
-			sConn, err := cp.Get()
-			if err != nil {
-				fmt.Println("Failed to get connection:", err)
-			} else {
-				result, err := dubbo.Invoke(inv, sConn)
-				if err != nil {
-					fmt.Println("Invocation error:", err)
-				} else {
-					conn.Write(result)
-				}
-				sConn.Close()
-			}
-		}()
 	}
 }
 
