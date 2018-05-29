@@ -12,15 +12,17 @@ func Invoke(invocation *Invocation, conn net.Conn) ([]byte, error) {
 		fmt.Println("Failed to write:", err)
 		return nil, err
 	}
-	var header [16]byte
-	if _, err := conn.Read(header[:]); err != nil {
-		fmt.Println("Failed to read header:", err)
+	var resp [64]byte
+	limit, err := conn.Read(resp[:])
+	if err != nil {
+		fmt.Println("Failed to read:", err)
 		return nil, err
 	}
-	bodyLen := int(binary.BigEndian.Uint32(header[12:]))
-	var body []byte
-	if bodyLen > 0 {
+	bodyLen := int(binary.BigEndian.Uint32(resp[12:]))
+	body := resp[16:]
+	if bodyLen > 0 && limit-16 < bodyLen {
 		body = make([]byte, bodyLen)
+		copy(body, resp[16:])
 		read := 0
 		for read < bodyLen {
 			if i, err := conn.Read(body); err == nil {
@@ -32,8 +34,8 @@ func Invoke(invocation *Invocation, conn net.Conn) ([]byte, error) {
 		}
 	}
 
-	if header[3] != 20 {
-		return nil, errors.New(fmt.Sprintf("Server respond with status %d", header[3]))
+	if resp[3] != 20 {
+		return nil, errors.New(fmt.Sprintf("Server respond with status %d", resp[3]))
 	}
 	if bodyLen > 0 {
 		var i, j int

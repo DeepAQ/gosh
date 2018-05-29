@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bytes"
 	"dubbo"
 	"etcd"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"net"
 	"strconv"
+	"unsafe"
 )
 
 var cp pool.Pool
@@ -58,13 +60,35 @@ func handler(ctx *fasthttp.RequestCtx) {
 	//	binary.BigEndian.PutUint64(memBytes[:], util.TotalMem())
 	//	ctx.Response.AppendBody(memBytes[:])
 	//} else {
-	args := ctx.PostArgs()
 	inv := &dubbo.Invocation{
-		DubboVersion:     "2.0.0",
-		ServiceName:      args.Peek("interface"),
-		MethodName:       args.Peek("method"),
-		MethodParamTypes: args.Peek("parameterTypesString"),
-		MethodArgs:       args.Peek("parameter"),
+		DubboVersion: "2.0.0",
+	}
+	body := ctx.Request.Body()
+	bodyLen := len(body)
+	start := 0
+	for start <= bodyLen {
+		i := bytes.IndexByte(body[start:], '&')
+		if i < 3 {
+			i = bodyLen - start
+		}
+		j := bytes.IndexByte(body[start:start+i], '=')
+		if j < 1 {
+			continue
+		}
+		ks := body[start : start+j]
+		k := *(*string)(unsafe.Pointer(&ks))
+		v := body[start+j+1 : start+i]
+		switch k {
+		case "interface":
+			inv.ServiceName = v
+		case "method":
+			inv.MethodName = v
+		case "parameterTypesString":
+			inv.MethodParamTypes = v
+		case "parameter":
+			inv.MethodArgs = v
+		}
+		start += i + 1
 	}
 	conn, err := cp.Get()
 	if err != nil {
@@ -77,7 +101,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 			fmt.Println("Invocation error:", err)
 			ctx.Response.SetStatusCode(500)
 		} else {
-			ctx.Response.AppendBody(result)
+			ctx.Response.SetBody(result)
 		}
 	}
 	//}

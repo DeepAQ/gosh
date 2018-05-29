@@ -71,14 +71,12 @@ func handler(ctx *fasthttp.RequestCtx) {
 		ctx.Response.SetBody(resp.Body())
 	}
 
-	go func() {
-		if invokeRT != nil {
-			atomic.AddInt64(&invokeRT[selected], serverRT/1E3)
-		}
-		if invokeCount != nil {
-			atomic.AddUint32(&invokeCount[selected], 1)
-		}
-		handlerRT := time.Now().UnixNano() - handlerBegin
-		atomic.AddInt64(&consumerRT, handlerRT/1E3)
-	}()
+	if invokeRT != nil {
+		atomic.AddInt64(&invokeRT[selected], serverRT/1E3)
+	}
+	if invokeCount != nil {
+		atomic.AddUint32(&invokeCount[selected], 1)
+	}
+	handlerRT := time.Now().UnixNano() - handlerBegin
+	atomic.AddInt64(&consumerRT, handlerRT/1E3)
 }
