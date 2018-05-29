@@ -2,6 +2,7 @@ package dubbo
 
 import (
 	"bytes"
+	"fmt"
 	"util"
 )
 
@@ -57,5 +58,6 @@ func (inv Invocation) ToBytes() []byte {
 	} else {
 		buf.WriteString("null\n")
 	}
+	fmt.Println(string(buf.Bytes()))
 	return buf.Bytes()
 }

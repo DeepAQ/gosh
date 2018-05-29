@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"bytes"
 	"dubbo"
 	"etcd"
 	"fmt"
@@ -63,22 +62,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 	inv := &dubbo.Invocation{
 		DubboVersion: "2.0.0",
 	}
-	body := ctx.Request.Body()
-	bodyLen := len(body)
-	start := 0
-	for start <= bodyLen {
-		i := bytes.IndexByte(body[start:], '&')
-		if i < 3 {
-			i = bodyLen - start
-		}
-		j := bytes.IndexByte(body[start:start+i], '=')
-		if j < 1 {
-			continue
-		}
-		ks := body[start : start+j]
-		k := *(*string)(unsafe.Pointer(&ks))
-		v := body[start+j+1 : start+i]
-		switch k {
+	ctx.Request.PostArgs().VisitAll(func(k, v []byte) {
+		switch *(*string)(unsafe.Pointer(&k)) {
 		case "interface":
 			inv.ServiceName = v
 		case "method":
@@ -88,8 +73,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		case "parameter":
 			inv.MethodArgs = v
 		}
-		start += i + 1
-	}
+	})
 	conn, err := cp.Get()
 	if err != nil {
 		fmt.Println("Failed to get connection:", err)
