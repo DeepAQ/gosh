@@ -18,16 +18,14 @@ func Start(opts map[string]string) {
 	}
 	fmt.Println("Starting consumer agent ...")
 
-	client = &fasthttp.Client{}
-
 	hosts, err := etcd.Query(opts["etcd"])
 	if err != nil {
 		return
 	}
 	totalServers = len(hosts)
-	servers = make([]*fasthttp.HostClient, totalServers)
+	servers = make([]fasthttp.HostClient, totalServers)
 	for i, host := range hosts {
-		servers[i] = &fasthttp.HostClient{
+		servers[i] = fasthttp.HostClient{
 			Addr:                          *(*string)(unsafe.Pointer(&host)),
 			MaxConns:                      256,
 			MaxIdleConnDuration:           60 * time.Second,
@@ -56,8 +54,6 @@ func Start(opts map[string]string) {
 
 func handler(ctx *fasthttp.RequestCtx) {
 	handlerBegin := time.Now().UnixNano()
-	req := fasthttp.AcquireRequest()
-	resp := fasthttp.AcquireResponse()
 
 	// Pick a server
 	rand := rand.Float64()
@@ -69,6 +65,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Prepare request
+	req := fasthttp.AcquireRequest()
+	resp := fasthttp.AcquireResponse()
 	req.Header.SetMethod("POST")
 	req.Header.SetHost(servers[selected].Addr)
 	req.SetBody(ctx.Request.Body())
@@ -76,12 +74,15 @@ func handler(ctx *fasthttp.RequestCtx) {
 	serverBegin := time.Now().UnixNano()
 	err := servers[selected].Do(req, resp)
 	serverRT := time.Now().UnixNano() - serverBegin
+
+	fasthttp.ReleaseRequest(req)
 	if err != nil {
 		ctx.Response.SetStatusCode(500)
 	} else {
 		ctx.Response.SetStatusCode(resp.StatusCode())
 		ctx.Response.SetBody(resp.Body())
 	}
+	fasthttp.ReleaseResponse(resp)
 
 	if invokeRT != nil {
 		atomic.AddInt64(&invokeRT[selected], serverRT/1E3)

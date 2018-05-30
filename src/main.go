@@ -11,8 +11,7 @@ import (
 )
 
 func main() {
-	fmt.Print("Args: ")
-	fmt.Println(os.Args)
+	fmt.Println("Args: ", os.Args)
 	opts := make(map[string]string)
 	for _, arg := range os.Args[1:] {
 		i := strings.IndexByte(arg, '=')
