@@ -16,7 +16,7 @@ func lbLoad() {
 			time.Sleep(5 * time.Second)
 			max := 0
 			for i, server := range servers {
-				status, body, err := client.Get(nil, "http://"+string(server)+"/perf")
+				status, body, err := server.Get(nil, "/perf")
 				if err != nil || status != 200 {
 					serverLoad[i] = 1
 				} else {

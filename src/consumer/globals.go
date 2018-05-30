@@ -4,9 +4,9 @@ import "github.com/valyala/fasthttp"
 
 var client *fasthttp.Client
 
-var servers [][]byte
+var servers []*fasthttp.HostClient
 var serverProb []float64
-var totalServers uint64
+var totalServers int
 
 var invokeCount []uint32
 var invokeRT []int64

@@ -9,7 +9,7 @@ func lbMem() {
 	fmt.Println("Using load balancing method: Memory Size")
 	sumProb := float64(0)
 	for i, server := range servers {
-		status, body, err := client.Get(nil, "http://"+string(server)+"/mem")
+		status, body, err := server.Get(nil, "/mem")
 		if err != nil || status != 200 {
 			serverProb[i] = 0
 		} else {

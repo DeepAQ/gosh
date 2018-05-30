@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
 func Start(opts map[string]string) {
@@ -19,12 +20,23 @@ func Start(opts map[string]string) {
 
 	client = &fasthttp.Client{}
 
-	var err error
-	servers, err = etcd.Query(opts["etcd"])
+	hosts, err := etcd.Query(opts["etcd"])
 	if err != nil {
 		return
 	}
-	totalServers = uint64(len(servers))
+	totalServers = len(hosts)
+	servers = make([]*fasthttp.HostClient, totalServers)
+	for i, host := range hosts {
+		servers[i] = &fasthttp.HostClient{
+			Addr:                          *(*string)(unsafe.Pointer(&host)),
+			MaxConns:                      256,
+			MaxIdleConnDuration:           60 * time.Second,
+			ReadBufferSize:                1024,
+			WriteBufferSize:               1024,
+			DisableHeaderNamesNormalizing: true,
+		}
+	}
+
 	serverProb = make([]float64, totalServers)
 	for i := range serverProb {
 		serverProb[i] = 1.0 / float64(totalServers)
@@ -55,14 +67,14 @@ func handler(ctx *fasthttp.RequestCtx) {
 	for selected = 0; rand >= sum+prob[selected]; selected++ {
 		sum += serverProb[selected]
 	}
-	req.SetHostBytes(servers[selected])
 
 	// Prepare request
 	req.Header.SetMethod("POST")
+	req.Header.SetHost(servers[selected].Addr)
 	req.SetBody(ctx.Request.Body())
 
 	serverBegin := time.Now().UnixNano()
-	err := client.Do(req, resp)
+	err := servers[selected].Do(req, resp)
 	serverRT := time.Now().UnixNano() - serverBegin
 	if err != nil {
 		ctx.Response.SetStatusCode(500)
