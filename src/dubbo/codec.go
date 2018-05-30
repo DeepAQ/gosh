@@ -16,10 +16,9 @@ func writeRequest(w io.Writer, inv *Invocation) error {
 		Serialization: 6,
 		Status:        0,
 		RequestID:     atomic.AddUint64(&reqId, 1),
-		DataLength:    uint32(len(data)),
+		DataLength:    uint32(len(data) - 16),
 	}
-	header := h.ToBytes()
-	data = append(header[:], data...)
+	h.ToBytes(data)
 	if _, err := w.Write(data); err != nil {
 		return err
 	}

@@ -14,7 +14,7 @@ type Header struct {
 	DataLength    uint32
 }
 
-func (h Header) ToBytes() [16]byte {
+func (h Header) ToBytes(bytes []byte) {
 	flags := h.Serialization
 	if h.Event {
 		flags += 1 << 5
@@ -26,12 +26,10 @@ func (h Header) ToBytes() [16]byte {
 		flags += 1 << 7
 	}
 
-	var bytes [16]byte
 	bytes[0] = 0xda
 	bytes[1] = 0xbb
 	bytes[2] = flags
 	bytes[3] = h.Status
 	binary.BigEndian.PutUint64(bytes[4:12], h.RequestID)
 	binary.BigEndian.PutUint32(bytes[12:16], h.DataLength)
-	return bytes
 }

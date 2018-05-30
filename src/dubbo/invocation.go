@@ -2,7 +2,6 @@ package dubbo
 
 import (
 	"bytes"
-	"fmt"
 	"util"
 )
 
@@ -17,7 +16,9 @@ type Invocation struct {
 }
 
 func (inv Invocation) ToBytes() []byte {
-	buf := bytes.Buffer{}
+	// make space for header
+	buf := bytes.NewBuffer(make([]byte, 16, 1024))
+
 	buf.WriteByte('"')
 	buf.WriteString(inv.DubboVersion)
 	buf.WriteByte('"')
@@ -58,6 +59,5 @@ func (inv Invocation) ToBytes() []byte {
 	} else {
 		buf.WriteString("null\n")
 	}
-	fmt.Println(string(buf.Bytes()))
 	return buf.Bytes()
 }
