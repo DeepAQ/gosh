@@ -9,6 +9,7 @@ import (
 	"net"
 	"strconv"
 	"unsafe"
+	"util"
 )
 
 var cp pool.Pool
@@ -33,6 +34,9 @@ func Start(opts map[string]string) {
 		fmt.Println("Failed to create channel pool:", err)
 		return
 	}
+
+	// Create buffer pool
+	util.BufPool = util.NewBufferPool(256)
 
 	// Register to etcd
 	etcd.Register(opts["etcd"], port)
@@ -79,8 +83,8 @@ func handler(ctx *fasthttp.RequestCtx) {
 		fmt.Println("Failed to get connection:", err)
 		ctx.Response.SetStatusCode(500)
 	} else {
-		defer conn.Close()
 		result, err := dubbo.Invoke(inv, conn)
+		conn.Close()
 		if err != nil {
 			fmt.Println("Invocation error:", err)
 			ctx.Response.SetStatusCode(500)

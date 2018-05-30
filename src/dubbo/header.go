@@ -14,7 +14,7 @@ type Header struct {
 	DataLength    uint32
 }
 
-func (h Header) ToBytes(bytes []byte) {
+func (h Header) WriteTo(bytes []byte) {
 	flags := h.Serialization
 	if h.Event {
 		flags += 1 << 5

@@ -15,10 +15,8 @@ type Invocation struct {
 	Attachments      map[string]string
 }
 
-func (inv Invocation) ToBytes() []byte {
+func (inv Invocation) WriteToBuf(buf *bytes.Buffer) {
 	// make space for header
-	buf := bytes.NewBuffer(make([]byte, 16, 1024))
-
 	buf.WriteByte('"')
 	buf.WriteString(inv.DubboVersion)
 	buf.WriteByte('"')
@@ -59,5 +57,4 @@ func (inv Invocation) ToBytes() []byte {
 	} else {
 		buf.WriteString("null\n")
 	}
-	return buf.Bytes()
 }
