@@ -139,6 +139,16 @@ func handler(ctx *fasthttp.RequestCtx) {
 		cw.Conn.Close()
 		return
 	}
+	if cw.Buf[0] != 0xca || cw.Buf[1] != 0xfe || limit < 8 {
+		fmt.Println("Cafe bad magic")
+		ctx.Response.SetStatusCode(500)
+		cw.Conn.Close()
+		return
+	}
+
+	if cw.Buf[2] == 0 && cw.Buf[3] == 0 {
+		ctx.Response.SetStatusCode(500)
+	}
 	bodyLen := int(binary.BigEndian.Uint32(cw.Buf[4:8]))
 	body := cw.Buf[8:limit]
 	if bodyLen > 0 && limit-8 < bodyLen {
