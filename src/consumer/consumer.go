@@ -1,6 +1,8 @@
 package consumer
 
 import (
+	"dubbo"
+	"encoding/binary"
 	"etcd"
 	"fmt"
 	"github.com/valyala/fasthttp"
@@ -9,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 	"unsafe"
+	"util"
 )
 
 func Start(opts map[string]string) {
@@ -20,20 +23,22 @@ func Start(opts map[string]string) {
 
 	hosts, err := etcd.Query(opts["etcd"])
 	if err != nil {
+		fmt.Println("Failed to query from etcd:", err)
 		return
 	}
 	totalServers = len(hosts)
-	servers = make([]fasthttp.HostClient, totalServers)
-	for i, host := range hosts {
-		servers[i] = fasthttp.HostClient{
-			Addr:                          *(*string)(unsafe.Pointer(&host)),
-			MaxConns:                      256,
-			MaxIdleConnDuration:           60 * time.Second,
-			ReadBufferSize:                1024,
-			WriteBufferSize:               1024,
-			DisableHeaderNamesNormalizing: true,
-		}
-	}
+	util.InitPools(8, 64, hosts)
+	//servers = make([]fasthttp.HostClient, totalServers)
+	//for i, host := range hosts {
+	//	servers[i] = fasthttp.HostClient{
+	//		Addr:                          *(*string)(unsafe.Pointer(&host)),
+	//		MaxConns:                      256,
+	//		MaxIdleConnDuration:           60 * time.Second,
+	//		ReadBufferSize:                1024,
+	//		WriteBufferSize:               1024,
+	//		DisableHeaderNamesNormalizing: true,
+	//	}
+	//}
 
 	serverProb = make([]float64, totalServers)
 	for i := range serverProb {
@@ -64,25 +69,94 @@ func handler(ctx *fasthttp.RequestCtx) {
 		sum += serverProb[selected]
 	}
 
-	// Prepare request
-	req := fasthttp.AcquireRequest()
-	resp := fasthttp.AcquireResponse()
-	req.Header.SetMethod("POST")
-	req.Header.SetHost(servers[selected].Addr)
-	req.SetBody(ctx.Request.Body())
+	//req := fasthttp.AcquireRequest()
+	//resp := fasthttp.AcquireResponse()
+	//req.Header.SetMethod("POST")
+	//req.Header.SetHost(servers[selected].Addr)
+	//req.SetBody(ctx.Request.Body())
+	//
+	//serverBegin := time.Now().UnixNano()
+	//err := servers[selected].Do(req, resp)
+	//serverRT := time.Now().UnixNano() - serverBegin
+	//
+	//fasthttp.ReleaseRequest(req)
+	//if err != nil {
+	//	ctx.Response.SetStatusCode(500)
+	//} else {
+	//	ctx.Response.SetStatusCode(resp.StatusCode())
+	//	ctx.Response.SetBody(resp.Body())
+	//}
+	//fasthttp.ReleaseResponse(resp)
 
-	serverBegin := time.Now().UnixNano()
-	err := servers[selected].Do(req, resp)
-	serverRT := time.Now().UnixNano() - serverBegin
-
-	fasthttp.ReleaseRequest(req)
-	if err != nil {
-		ctx.Response.SetStatusCode(500)
-	} else {
-		ctx.Response.SetStatusCode(resp.StatusCode())
-		ctx.Response.SetBody(resp.Body())
+	inv := dubbo.Invocation{
+		DubboVersion: "2.0.0",
 	}
-	fasthttp.ReleaseResponse(resp)
+	ctx.Request.PostArgs().VisitAll(func(k, v []byte) {
+		switch *(*string)(unsafe.Pointer(&k)) {
+		case "interface":
+			inv.ServiceName = v
+		case "method":
+			inv.MethodName = v
+		case "parameterTypesString":
+			inv.MethodParamTypes = v
+		case "parameter":
+			inv.MethodArgs = v
+		}
+	})
+
+	buf := util.AcquireReqBuf()
+	inv.WriteToBufAsCafe(buf)
+	req := buf.Bytes()
+	req[0] = 0xca
+	req[1] = 0xfe
+	req[2] = 0xbe
+	req[3] = 0xef
+	binary.BigEndian.PutUint32(req[4:8], uint32(len(req)-8))
+
+	cw := util.AcquireConn(selected)
+	serverBegin := time.Now().UnixNano()
+	if _, err := cw.Conn.Write(req); err != nil {
+		cw.Conn.Close()
+		cw = util.NewConn(selected)
+		if cw.Conn == nil {
+			fmt.Println("Failed to get conn")
+			ctx.Response.SetStatusCode(500)
+			return
+		}
+		if _, err := cw.Conn.Write(req); err != nil {
+			cw.Conn.Close()
+			fmt.Println("Failed to write req:", err)
+			ctx.Response.SetStatusCode(500)
+			return
+		}
+	}
+	util.ReleaseReqBuf(8, buf)
+
+	limit, err := cw.Conn.Read(cw.Buf)
+	if err != nil {
+		fmt.Println("Failed to read:", err)
+		ctx.Response.SetStatusCode(500)
+		return
+	}
+	bodyLen := int(binary.BigEndian.Uint32(cw.Buf[4:8]))
+	body := cw.Buf[8:limit]
+	if bodyLen > 0 && limit-8 < bodyLen {
+		body = make([]byte, bodyLen)
+		copy(body, cw.Buf[8:limit])
+		read := 0
+		for read < bodyLen {
+			if i, err := cw.Conn.Read(body[read:]); err == nil {
+				read += i
+			} else {
+				fmt.Println("Failed to read body:", err)
+				ctx.Response.SetStatusCode(500)
+				return
+			}
+		}
+	}
+	serverRT := time.Now().UnixNano() - serverBegin
+	util.ReleaseConn(selected, cw)
+	ctx.Response.SetBody(body)
 
 	if invokeRT != nil {
 		atomic.AddInt64(&invokeRT[selected], serverRT/1E3)

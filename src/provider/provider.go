@@ -22,7 +22,7 @@ func Start(opts map[string]string) {
 	fmt.Println("Starting provider agent ...")
 
 	// Init pools
-	util.InitPools(fmt.Sprintf("127.0.0.1:%d", dubboPort))
+	util.InitPools(16, 64, []string{fmt.Sprintf("127.0.0.1:%d", dubboPort)})
 
 	// Register to etcd
 	etcd.Register(opts["etcd"], port)
@@ -30,15 +30,18 @@ func Start(opts map[string]string) {
 	// Start performance monitor
 	//go util.PrefMonitor()
 
-	// Listen
 	fmt.Printf("Listening on port %d, dubbo port %d\n", port, dubboPort)
-	if err := fasthttp.ListenAndServe(fmt.Sprintf(":%d", port), handler); err != nil {
-		fmt.Println("Failed to listen:", err)
-		return
-	}
+	// Listen HTTP
+	//if err := fasthttp.ListenAndServe(fmt.Sprintf(":%d", port), httpHandler); err != nil {
+	//	fmt.Println("Failed to listen:", err)
+	//	return
+	//}
+
+	// Listen Cafe
+	listenCafe(port)
 }
 
-func handler(ctx *fasthttp.RequestCtx) {
+func httpHandler(ctx *fasthttp.RequestCtx) {
 	//path := string(ctx.Path())
 	//if path == "/perf" {
 	//	var perfBytes [8]byte

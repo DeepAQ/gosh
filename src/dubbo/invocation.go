@@ -16,7 +16,6 @@ type Invocation struct {
 }
 
 func (inv Invocation) WriteToBuf(buf *bytes.Buffer) {
-	// make space for header
 	buf.WriteByte('"')
 	buf.WriteString(inv.DubboVersion)
 	buf.WriteByte('"')
@@ -57,4 +56,14 @@ func (inv Invocation) WriteToBuf(buf *bytes.Buffer) {
 	} else {
 		buf.WriteString("null\n")
 	}
+}
+
+func (inv Invocation) WriteToBufAsCafe(buf *bytes.Buffer) {
+	buf.Write(inv.ServiceName)
+	buf.WriteByte(0xff)
+	buf.Write(inv.MethodName)
+	buf.WriteByte(0xff)
+	buf.Write(inv.MethodParamTypes)
+	buf.WriteByte(0xff)
+	buf.Write(inv.MethodArgs)
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	"net"
 	"time"
+	"unsafe"
 )
 
 func Register(etcd string, port int) error {
@@ -55,7 +56,7 @@ func Register(etcd string, port int) error {
 	return nil
 }
 
-func Query(etcd string) ([][]byte, error) {
+func Query(etcd string) ([]string, error) {
 	fmt.Printf("Querying from etcd %s\n", etcd)
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   []string{etcd},
@@ -71,9 +72,9 @@ func Query(etcd string) ([][]byte, error) {
 		return nil, err
 	}
 	fmt.Println("Providers:", resp.Kvs)
-	servers := make([][]byte, len(resp.Kvs))
+	servers := make([]string, len(resp.Kvs))
 	for i, kv := range resp.Kvs {
-		servers[i] = kv.Value
+		servers[i] = *(*string)(unsafe.Pointer(&kv.Value))
 	}
 	return servers, nil
 }

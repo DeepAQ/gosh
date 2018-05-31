@@ -8,31 +8,33 @@ import (
 )
 
 var reqBufPool *sync.Pool
-var reqConnPool *sync.Pool
+var reqConnPool []*sync.Pool
 
 type ConnWrapper struct {
 	Conn net.Conn
 	Buf  []byte
 }
 
-// NewBufferPool creates a new BufferPool bounded to the given size.
-func InitPools(remote string) {
+func InitPools(headerLen int, connBufLen int, remotes []string) {
 	reqBufPool = &sync.Pool{
 		New: func() interface{} {
-			return bytes.NewBuffer(make([]byte, 16, 1024))
+			return bytes.NewBuffer(make([]byte, headerLen, 1024))
 		},
 	}
-	reqConnPool = &sync.Pool{
-		New: func() interface{} {
-			conn, err := net.Dial("tcp", remote)
-			if err != nil {
-				fmt.Println("Failed to create new conn:", err)
-			}
-			return &ConnWrapper{
-				Conn: conn.(net.Conn),
-				Buf:  make([]byte, 64),
-			}
-		},
+	reqConnPool = make([]*sync.Pool, len(remotes))
+	for i, remote := range remotes {
+		reqConnPool[i] = &sync.Pool{
+			New: func() interface{} {
+				conn, err := net.Dial("tcp", remote)
+				if err != nil {
+					fmt.Println("Failed to create new conn:", err)
+				}
+				return &ConnWrapper{
+					Conn: conn.(net.Conn),
+					Buf:  make([]byte, connBufLen),
+				}
+			},
+		}
 	}
 }
 
@@ -40,22 +42,22 @@ func AcquireReqBuf() *bytes.Buffer {
 	return reqBufPool.Get().(*bytes.Buffer)
 }
 
-func ReleaseReqBuf(buf *bytes.Buffer) {
-	buf.Truncate(16)
+func ReleaseReqBuf(headerLen int, buf *bytes.Buffer) {
+	buf.Truncate(headerLen)
 	reqBufPool.Put(buf)
 }
 
-func AcquireConn() *ConnWrapper {
-	conn := reqConnPool.Get()
+func AcquireConn(index int) *ConnWrapper {
+	conn := reqConnPool[index].Get()
 	if conn != nil {
 		return conn.(*ConnWrapper)
 	} else {
-		return NewConn()
+		return NewConn(index)
 	}
 }
 
-func NewConn() *ConnWrapper {
-	conn := reqConnPool.New()
+func NewConn(index int) *ConnWrapper {
+	conn := reqConnPool[index].New()
 	if conn != nil {
 		return conn.(*ConnWrapper)
 	} else {
@@ -63,6 +65,6 @@ func NewConn() *ConnWrapper {
 	}
 }
 
-func ReleaseConn(cw *ConnWrapper) {
-	reqConnPool.Put(cw)
+func ReleaseConn(index int, cw *ConnWrapper) {
+	reqConnPool[index].Put(cw)
 }

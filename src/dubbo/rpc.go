@@ -12,10 +12,10 @@ import (
 var globalReqId uint64
 
 func Invoke(inv Invocation) ([]byte, error) {
-	cw := util.AcquireConn()
+	cw := util.AcquireConn(0)
 	if err := writeRequest(cw.Conn, inv); err != nil {
 		cw.Conn.Close()
-		cw = util.NewConn()
+		cw = util.NewConn(0)
 		if cw.Conn == nil {
 			fmt.Println("Failed to get conn")
 			return nil, err
@@ -38,7 +38,7 @@ func Invoke(inv Invocation) ([]byte, error) {
 		copy(body, cw.Buf[16:limit])
 		read := 0
 		for read < bodyLen {
-			if i, err := cw.Conn.Read(body); err == nil {
+			if i, err := cw.Conn.Read(body[read:]); err == nil {
 				read += i
 			} else {
 				fmt.Println("Failed to read body:", err)
@@ -46,11 +46,11 @@ func Invoke(inv Invocation) ([]byte, error) {
 			}
 		}
 	}
-	util.ReleaseConn(cw)
-
 	if cw.Buf[3] != 20 {
 		return nil, errors.New(fmt.Sprintf("Server respond with status %d", cw.Buf[3]))
 	}
+	util.ReleaseConn(0, cw)
+
 	if bodyLen > 0 {
 		var i, j int
 		for i = 1; body[i] == '\r' || body[i] == '\n'; i++ {
@@ -78,7 +78,7 @@ func writeRequest(w io.Writer, inv Invocation) error {
 	}
 	h.WriteTo(data)
 	_, err := w.Write(data)
-	util.ReleaseReqBuf(buf)
+	util.ReleaseReqBuf(16, buf)
 	if err != nil {
 		return err
 	}
