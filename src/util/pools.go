@@ -22,7 +22,8 @@ func InitPools(headerLen int, connBufLen int, remotes []string) {
 		},
 	}
 	reqConnPool = make([]*sync.Pool, len(remotes))
-	for i, remote := range remotes {
+	for i := range remotes {
+		remote := remotes[i]
 		reqConnPool[i] = &sync.Pool{
 			New: func() interface{} {
 				conn, err := net.Dial("tcp", remote)
