@@ -61,11 +61,11 @@ func handler(ctx *fasthttp.RequestCtx) {
 	handlerBegin := time.Now().UnixNano()
 
 	// Pick a server
-	rand := rand.Float64()
+	rnd := rand.Float64()
 	sum := float64(0)
 	var selected int
 	prob := serverProb
-	for selected = 0; rand >= sum+prob[selected]; selected++ {
+	for selected = 0; rnd >= sum+prob[selected]; selected++ {
 		sum += serverProb[selected]
 	}
 
@@ -124,9 +124,9 @@ func handler(ctx *fasthttp.RequestCtx) {
 			return
 		}
 		if _, err := cw.Conn.Write(req); err != nil {
-			cw.Conn.Close()
 			fmt.Println("Failed to write req:", err)
 			ctx.Response.SetStatusCode(500)
+			cw.Conn.Close()
 			return
 		}
 	}
@@ -136,6 +136,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 	if err != nil {
 		fmt.Println("Failed to read:", err)
 		ctx.Response.SetStatusCode(500)
+		cw.Conn.Close()
 		return
 	}
 	bodyLen := int(binary.BigEndian.Uint32(cw.Buf[4:8]))
@@ -150,6 +151,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 			} else {
 				fmt.Println("Failed to read body:", err)
 				ctx.Response.SetStatusCode(500)
+				cw.Conn.Close()
 				return
 			}
 		}

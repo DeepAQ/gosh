@@ -18,7 +18,7 @@ type ConnWrapper struct {
 func InitPools(headerLen int, connBufLen int, remotes []string) {
 	reqBufPool = &sync.Pool{
 		New: func() interface{} {
-			return bytes.NewBuffer(make([]byte, headerLen, 1024))
+			return bytes.NewBuffer(make([]byte, headerLen, 1280))
 		},
 	}
 	reqConnPool = make([]*sync.Pool, len(remotes))

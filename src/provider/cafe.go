@@ -30,7 +30,7 @@ func listenCafe(port int) {
 }
 
 func cafeHandler(conn net.Conn) {
-	buf := make([]byte, 1024)
+	buf := make([]byte, 1280)
 	for {
 		limit, err := conn.Read(buf)
 		if err != nil {
@@ -49,7 +49,7 @@ func cafeHandler(conn net.Conn) {
 			copy(body, buf[8:limit])
 			read := limit - 8
 			for read < bodyLen {
-				i, err := conn.Read(buf)
+				i, err := conn.Read(body[read:])
 				if err != nil {
 					fmt.Println("Failed to read from client:", err)
 					conn.Close()
