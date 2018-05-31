@@ -65,7 +65,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 		}
 	})
 	result, err := dubbo.Invoke(inv)
-	if err != nil {
+	if err != nil || result == nil {
 		fmt.Println("Invocation error:", err)
 		ctx.Response.SetStatusCode(500)
 	} else {

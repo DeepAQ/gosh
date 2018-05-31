@@ -10,6 +10,11 @@ import (
 var reqBufPool *sync.Pool
 var reqConnPool *sync.Pool
 
+type ConnWrapper struct {
+	Conn net.Conn
+	Buf  []byte
+}
+
 // NewBufferPool creates a new BufferPool bounded to the given size.
 func InitPools(remote string) {
 	reqBufPool = &sync.Pool{
@@ -23,7 +28,10 @@ func InitPools(remote string) {
 			if err != nil {
 				fmt.Println("Failed to create new conn:", err)
 			}
-			return conn
+			return &ConnWrapper{
+				Conn: conn.(net.Conn),
+				Buf:  make([]byte, 64),
+			}
 		},
 	}
 }
@@ -37,24 +45,24 @@ func ReleaseReqBuf(buf *bytes.Buffer) {
 	reqBufPool.Put(buf)
 }
 
-func AcquireConn() net.Conn {
+func AcquireConn() *ConnWrapper {
 	conn := reqConnPool.Get()
 	if conn != nil {
-		return conn.(net.Conn)
+		return conn.(*ConnWrapper)
 	} else {
 		return NewConn()
 	}
 }
 
-func NewConn() net.Conn {
+func NewConn() *ConnWrapper {
 	conn := reqConnPool.New()
 	if conn != nil {
-		return conn.(net.Conn)
+		return conn.(*ConnWrapper)
 	} else {
 		return nil
 	}
 }
 
-func ReleaseConn(conn net.Conn) {
-	reqConnPool.Put(conn)
+func ReleaseConn(cw *ConnWrapper) {
+	reqConnPool.Put(cw)
 }

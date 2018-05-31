@@ -12,34 +12,33 @@ import (
 var globalReqId uint64
 
 func Invoke(inv Invocation) ([]byte, error) {
-	conn := util.AcquireConn()
-	if err := writeRequest(conn, inv); err != nil {
-		conn.Close()
-		conn = util.NewConn()
-		if conn == nil {
+	cw := util.AcquireConn()
+	if err := writeRequest(cw.Conn, inv); err != nil {
+		cw.Conn.Close()
+		cw = util.NewConn()
+		if cw.Conn == nil {
 			fmt.Println("Failed to get conn")
 			return nil, err
 		}
-		if err := writeRequest(conn, inv); err != nil {
-			conn.Close()
+		if err := writeRequest(cw.Conn, inv); err != nil {
+			cw.Conn.Close()
 			fmt.Println("Failed to write req:", err)
 			return nil, err
 		}
 	}
-	var resp [64]byte
-	limit, err := conn.Read(resp[:])
+	limit, err := cw.Conn.Read(cw.Buf)
 	if err != nil {
 		fmt.Println("Failed to read:", err)
 		return nil, err
 	}
-	bodyLen := int(binary.BigEndian.Uint32(resp[12:]))
-	body := resp[16:]
+	bodyLen := int(binary.BigEndian.Uint32(cw.Buf[12:16]))
+	body := cw.Buf[16:limit]
 	if bodyLen > 0 && limit-16 < bodyLen {
 		body = make([]byte, bodyLen)
-		copy(body, resp[16:])
+		copy(body, cw.Buf[16:limit])
 		read := 0
 		for read < bodyLen {
-			if i, err := conn.Read(body); err == nil {
+			if i, err := cw.Conn.Read(body); err == nil {
 				read += i
 			} else {
 				fmt.Println("Failed to read body:", err)
@@ -47,10 +46,10 @@ func Invoke(inv Invocation) ([]byte, error) {
 			}
 		}
 	}
-	util.ReleaseConn(conn)
+	util.ReleaseConn(cw)
 
-	if resp[3] != 20 {
-		return nil, errors.New(fmt.Sprintf("Server respond with status %d", resp[3]))
+	if cw.Buf[3] != 20 {
+		return nil, errors.New(fmt.Sprintf("Server respond with status %d", cw.Buf[3]))
 	}
 	if bodyLen > 0 {
 		var i, j int
@@ -61,7 +60,7 @@ func Invoke(inv Invocation) ([]byte, error) {
 		return body[i : j+1], nil
 	}
 
-	return []byte{}, nil
+	return nil, nil
 }
 
 func writeRequest(w io.Writer, inv Invocation) error {
