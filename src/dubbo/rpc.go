@@ -1,47 +1,50 @@
 package dubbo
 
 import (
-	"bytes"
-	"sync/atomic"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"net"
 )
 
-var globalReqId uint64
-
-func Invoke(inv Invocation) ([]byte, error) {
-	buf := bufPool.Get().(*bytes.Buffer)
-	inv.WriteToBuf(buf)
-	data := buf.Bytes()
-	newReqId := atomic.AddUint64(&globalReqId, 1)
-	Header{
-		Req:           true,
-		TwoWay:        true,
-		Event:         false,
-		Serialization: 6,
-		Status:        0,
-		RequestID:     newReqId,
-		DataLength:    uint32(len(data) - 16),
-	}.WriteTo(data)
-
-	respChan := respChanPool.Get()
-	respMap.Store(newReqId, respChan)
-	_, err := conn.Write(data)
-
-	//fmt.Print("-> ")
-	//for _, byte := range data {
-	//	fmt.Printf("%02x ", byte)
-	//}
-	//fmt.Println("\n")
-
-	buf.Truncate(16)
-	bufPool.Put(buf)
-	if err != nil {
-		respChanPool.Put(respChan)
-		respMap.Delete(newReqId)
+func Invoke(invocation *Invocation, conn net.Conn) ([]byte, error) {
+	if err := writeRequest(conn, invocation); err != nil {
+		fmt.Println("Failed to write:", err)
 		return nil, err
 	}
+	var resp [64]byte
+	limit, err := conn.Read(resp[:])
+	if err != nil {
+		fmt.Println("Failed to read:", err)
+		return nil, err
+	}
+	bodyLen := int(binary.BigEndian.Uint32(resp[12:]))
+	body := resp[16:]
+	if bodyLen > 0 && limit-16 < bodyLen {
+		body = make([]byte, bodyLen)
+		copy(body, resp[16:])
+		read := 0
+		for read < bodyLen {
+			if i, err := conn.Read(body); err == nil {
+				read += i
+			} else {
+				fmt.Println("Failed to read body:", err)
+				return nil, err
+			}
+		}
+	}
 
-	resp := <-respChan.(chan []byte)
-	respChanPool.Put(respChan)
-	respMap.Delete(newReqId)
-	return resp, nil
+	if resp[3] != 20 {
+		return nil, errors.New(fmt.Sprintf("Server respond with status %d", resp[3]))
+	}
+	if bodyLen > 0 {
+		var i, j int
+		for i = 1; body[i] == '\r' || body[i] == '\n'; i++ {
+		}
+		for j = bodyLen - 1; body[j] == '\r' || body[j] == '\n'; j-- {
+		}
+		return body[i : j+1], nil
+	}
+
+	return []byte{}, nil
 }

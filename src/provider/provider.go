@@ -4,11 +4,15 @@ import (
 	"dubbo"
 	"etcd"
 	"fmt"
+	"github.com/fatih/pool"
 	"github.com/valyala/fasthttp"
+	"net"
 	"strconv"
-	"time"
 	"unsafe"
+	"util"
 )
+
+var cp pool.Pool
 
 func Start(opts map[string]string) {
 	port, _ := strconv.Atoi(opts["port"])
@@ -21,13 +25,18 @@ func Start(opts map[string]string) {
 	}
 	fmt.Println("Starting provider agent ...")
 
-	// Connect to provider
-	for {
-		if err := dubbo.Connect(fmt.Sprintf("127.0.0.1:%d", dubboPort)); err == nil {
-			break
-		}
-		time.Sleep(1 * time.Second)
+	// Create channel pool
+	var err error
+	cp, err = pool.NewChannelPool(0, 200, func() (net.Conn, error) {
+		return net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", dubboPort))
+	})
+	if err != nil {
+		fmt.Println("Failed to create channel pool:", err)
+		return
 	}
+
+	// Create buffer pool
+	util.BufPool = util.NewBufferPool(256)
 
 	// Register to etcd
 	etcd.Register(opts["etcd"], port)
@@ -54,7 +63,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 	//	binary.BigEndian.PutUint64(memBytes[:], util.TotalMem())
 	//	ctx.Response.AppendBody(memBytes[:])
 	//} else {
-	inv := dubbo.Invocation{
+	inv := &dubbo.Invocation{
 		DubboVersion: "2.0.0",
 	}
 	ctx.Request.PostArgs().VisitAll(func(k, v []byte) {
@@ -69,12 +78,19 @@ func handler(ctx *fasthttp.RequestCtx) {
 			inv.MethodArgs = v
 		}
 	})
-	result, err := dubbo.Invoke(inv)
+	conn, err := cp.Get()
 	if err != nil {
-		fmt.Println("Invocation error:", err)
+		fmt.Println("Failed to get connection:", err)
 		ctx.Response.SetStatusCode(500)
 	} else {
-		ctx.Response.SetBody(result)
+		result, err := dubbo.Invoke(inv, conn)
+		conn.Close()
+		if err != nil {
+			fmt.Println("Invocation error:", err)
+			ctx.Response.SetStatusCode(500)
+		} else {
+			ctx.Response.SetBody(result)
+		}
 	}
 	//}
 }
