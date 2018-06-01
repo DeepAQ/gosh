@@ -38,8 +38,7 @@ func lbRT() {
 				atomic.AddInt64(&invokeRT[i], -rt)
 				atomic.AddUint32(&invokeCount[i], ^(count - 1))
 			}
-			fmt.Print(" avgRT:", avgRT, " consumerRT:", float64(consumerRT)/float64(totalInvokes))
-			consumerRT = 0
+			fmt.Print(" avgRT:", avgRT)
 
 			sumProb := float64(0)
 			for i := range newProb {

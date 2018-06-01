@@ -78,7 +78,8 @@ func cafeHandler(conn net.Conn) {
 			fmt.Println("Invocation error:", err)
 			cafeWriteError(conn)
 		} else {
-			resp := util.AcquireCafeRespBytes()
+			pResp := util.AcquireCafeRespBytes()
+			resp := *pResp
 			resp[0] = 0xca
 			resp[1] = 0xfe
 			resp[2] = 0xbe
@@ -92,13 +93,14 @@ func cafeHandler(conn net.Conn) {
 				conn.Write(resp[0:8])
 				conn.Write(result)
 			}
-			util.ReleaseCafeRespBytes(resp)
+			util.ReleaseCafeRespBytes(pResp)
 		}
 	}
 }
 
 func cafeWriteError(w io.Writer) {
-	resp := util.AcquireCafeRespBytes()
+	pResp := util.AcquireCafeRespBytes()
+	resp := *pResp
 	resp[0] = 0xca
 	resp[1] = 0xfe
 	resp[2] = 0x00
@@ -108,5 +110,5 @@ func cafeWriteError(w io.Writer) {
 	resp[6] = 0x00
 	resp[7] = 0x00
 	w.Write(resp[0:8])
-	util.ReleaseCafeRespBytes(resp)
+	util.ReleaseCafeRespBytes(pResp)
 }

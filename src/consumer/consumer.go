@@ -58,8 +58,6 @@ func Start(opts map[string]string) {
 }
 
 func handler(ctx *fasthttp.RequestCtx) {
-	handlerBegin := time.Now().UnixNano()
-
 	// Pick a server
 	rnd := rand.Float64()
 	sum := float64(0)
@@ -176,6 +174,4 @@ func handler(ctx *fasthttp.RequestCtx) {
 	if invokeCount != nil {
 		atomic.AddUint32(&invokeCount[selected], 1)
 	}
-	handlerRT := time.Now().UnixNano() - handlerBegin
-	atomic.AddInt64(&consumerRT, handlerRT/1E3)
 }

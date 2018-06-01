@@ -9,15 +9,16 @@ var cafeRespBytesPool *sync.Pool
 func InitCafePools(respBytesLen int) {
 	cafeRespBytesPool = &sync.Pool{
 		New: func() interface{} {
-			return make([]byte, respBytesLen)
+			bytes := make([]byte, respBytesLen)
+			return &bytes
 		},
 	}
 }
 
-func AcquireCafeRespBytes() []byte {
-	return cafeRespBytesPool.Get().([]byte)
+func AcquireCafeRespBytes() *[]byte {
+	return cafeRespBytesPool.Get().(*[]byte)
 }
 
-func ReleaseCafeRespBytes(bytes []byte) {
+func ReleaseCafeRespBytes(bytes *[]byte) {
 	cafeRespBytesPool.Put(bytes)
 }
