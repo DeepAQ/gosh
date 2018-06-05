@@ -19,6 +19,10 @@ func Start(opts map[string]string) {
 	if dubboPort <= 0 {
 		dubboPort = 20880
 	}
+	weight, _ := strconv.Atoi(opts["weight"])
+	if weight <= 0 {
+		weight = 1
+	}
 	fmt.Println("Starting provider agent ...")
 
 	// Init pools and semaphore
@@ -26,7 +30,7 @@ func Start(opts map[string]string) {
 	util.InitSem(199)
 
 	// Register to etcd
-	etcd.Register(opts["etcd"], port)
+	etcd.Register(opts["etcd"], port, weight)
 
 	// Start performance monitor
 	//go util.PrefMonitor()

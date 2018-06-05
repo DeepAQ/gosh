@@ -8,7 +8,6 @@ import (
 	"github.com/valyala/fasthttp"
 	"math/rand"
 	"strconv"
-	"sync/atomic"
 	"time"
 	"unsafe"
 	"util"
@@ -21,32 +20,27 @@ func Start(opts map[string]string) {
 	}
 	fmt.Println("Starting consumer agent ...")
 
-	hosts, err := etcd.Query(opts["etcd"])
+	hosts, weights, err := etcd.Query(opts["etcd"])
 	if err != nil {
 		fmt.Println("Failed to query from etcd:", err)
 		return
 	}
 	totalServers = len(hosts)
 	util.InitPools(8, 64, hosts)
-	//servers = make([]fasthttp.HostClient, totalServers)
-	//for i, host := range hosts {
-	//	servers[i] = fasthttp.HostClient{
-	//		Addr:                          *(*string)(unsafe.Pointer(&host)),
-	//		MaxConns:                      256,
-	//		MaxIdleConnDuration:           60 * time.Second,
-	//		ReadBufferSize:                1024,
-	//		WriteBufferSize:               1024,
-	//		DisableHeaderNamesNormalizing: true,
-	//	}
-	//}
+
+	sumWeight := 0
+	for _, weight := range weights {
+		sumWeight += weight
+	}
 
 	serverProb = make([]float64, totalServers)
 	for i := range serverProb {
-		serverProb[i] = 1.0 / float64(totalServers)
+		serverProb[i] = float64(weights[i]) / float64(sumWeight)
 	}
+	fmt.Println("Prob:", serverProb)
 	rand.Seed(time.Now().UnixNano())
 	// Load balancing method start
-	lbRT()
+	//lbRT()
 	// Load balancing method end
 
 	// Listen
@@ -66,25 +60,6 @@ func handler(ctx *fasthttp.RequestCtx) {
 	for selected = 0; rnd >= sum+prob[selected]; selected++ {
 		sum += serverProb[selected]
 	}
-
-	//req := fasthttp.AcquireRequest()
-	//resp := fasthttp.AcquireResponse()
-	//req.Header.SetMethod("POST")
-	//req.Header.SetHost(servers[selected].Addr)
-	//req.SetBody(ctx.Request.Body())
-	//
-	//serverBegin := time.Now().UnixNano()
-	//err := servers[selected].Do(req, resp)
-	//serverRT := time.Now().UnixNano() - serverBegin
-	//
-	//fasthttp.ReleaseRequest(req)
-	//if err != nil {
-	//	ctx.Response.SetStatusCode(500)
-	//} else {
-	//	ctx.Response.SetStatusCode(resp.StatusCode())
-	//	ctx.Response.SetBody(resp.Body())
-	//}
-	//fasthttp.ReleaseResponse(resp)
 
 	inv := dubbo.Invocation{
 		DubboVersion: "2.0.0",
@@ -112,7 +87,7 @@ func handler(ctx *fasthttp.RequestCtx) {
 	binary.BigEndian.PutUint32(req[4:8], uint32(len(req)-8))
 
 	cw := util.AcquireConn(selected)
-	serverBegin := time.Now().UnixNano()
+	//serverBegin := time.Now().UnixNano()
 	if _, err := cw.Conn.Write(req); err != nil {
 		cw.Conn.Close()
 		cw = util.NewConn(selected)
@@ -164,14 +139,14 @@ func handler(ctx *fasthttp.RequestCtx) {
 			}
 		}
 	}
-	serverRT := time.Now().UnixNano() - serverBegin
+	//serverRT := time.Now().UnixNano() - serverBegin
 	util.ReleaseConn(selected, cw)
 	ctx.Response.SetBody(body)
 
-	if invokeRT != nil {
-		atomic.AddInt64(&invokeRT[selected], serverRT/1E3)
-	}
-	if invokeCount != nil {
-		atomic.AddUint32(&invokeCount[selected], 1)
-	}
+	//if invokeRT != nil {
+	//	atomic.AddInt64(&invokeRT[selected], serverRT/1E3)
+	//}
+	//if invokeCount != nil {
+	//	atomic.AddUint32(&invokeCount[selected], 1)
+	//}
 }

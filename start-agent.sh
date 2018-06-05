@@ -11,13 +11,13 @@ if [[ "$1" == "consumer" ]]; then
   gosh -type=consumer -port=20000 -etcd=$ETCD_URL
 elif [[ "$1" == "provider-small" ]]; then
   echo "Starting small provider agent..."
-  gosh -type=provider -port=30000 -dubbo.port=20880 -etcd=$ETCD_URL
+  gosh -type=provider -weight=10 -port=30000 -dubbo.port=20880 -etcd=$ETCD_URL
 elif [[ "$1" == "provider-medium" ]]; then
   echo "Starting medium provider agent..."
-  gosh -type=provider -port=30000 -dubbo.port=20880 -etcd=$ETCD_URL
+  gosh -type=provider -weight=40 -port=30000 -dubbo.port=20880 -etcd=$ETCD_URL
 elif [[ "$1" == "provider-large" ]]; then
   echo "Starting large provider agent..."
-  gosh -type=provider -port=30000 -dubbo.port=20880 -etcd=$ETCD_URL
+  gosh -type=provider -weight=50 -port=30000 -dubbo.port=20880 -etcd=$ETCD_URL
 else
   echo "Unrecognized arguments, exit."
   exit 1
