@@ -13,6 +13,7 @@ func lbRT() {
 	invokeCount = make([]uint32, totalServers)
 
 	avgRT := make([]float64, totalServers)
+	actualProb := make([]float64, totalServers)
 	newProb := make([]float64, totalServers)
 	go func() {
 		for {
@@ -24,8 +25,9 @@ func lbRT() {
 			for i := range avgRT {
 				rt := invokeRT[i]
 				count := invokeCount[i]
+				actualProb[i] = float64(count)
 				if count > 0 {
-					avgRT[i] = math.Log(float64(rt)/float64(count) + 2)
+					avgRT[i] = math.Sqrt(float64(rt)/float64(count) + 1)
 				} else {
 					avgRT[i] = 0
 					adjust = false
@@ -40,7 +42,7 @@ func lbRT() {
 			if adjust {
 				sumProb := float64(0)
 				for i := range newProb {
-					newProb[i] = serverProb[i] * avgRT[min] / avgRT[i]
+					newProb[i] = actualProb[i] * avgRT[min] / avgRT[i]
 					sumProb += newProb[i]
 				}
 				for i := range newProb {
