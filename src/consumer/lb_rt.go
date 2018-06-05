@@ -20,15 +20,15 @@ func lbRT() {
 			fmt.Print("[LB_RT] count:", invokeCount)
 
 			min := 0
-			totalInvokes := uint32(0)
+			adjust := true
 			for i := range avgRT {
 				rt := invokeRT[i]
 				count := invokeCount[i]
-				totalInvokes += count
 				if count > 0 {
 					avgRT[i] = math.Log(float64(rt)/float64(count) + 2)
 				} else {
-					avgRT[i] = math.Log(2)
+					avgRT[i] = 0
+					adjust = false
 				}
 				if i > 0 && avgRT[i] < avgRT[min] {
 					min = i
@@ -36,18 +36,19 @@ func lbRT() {
 				atomic.AddInt64(&invokeRT[i], -rt)
 				atomic.AddUint32(&invokeCount[i], ^(count - 1))
 			}
-			fmt.Print(" avgRT:", avgRT)
 
-			sumProb := float64(0)
-			for i := range newProb {
-				newProb[i] = serverProb[i] * avgRT[min] / avgRT[i]
-				sumProb += newProb[i]
+			if adjust {
+				sumProb := float64(0)
+				for i := range newProb {
+					newProb[i] = serverProb[i] * avgRT[min] / avgRT[i]
+					sumProb += newProb[i]
+				}
+				for i := range newProb {
+					newProb[i] /= sumProb
+				}
+				serverProb = newProb
 			}
-			for i := range newProb {
-				newProb[i] /= sumProb
-			}
-			serverProb = newProb
-			fmt.Println(" prob:", newProb)
+			fmt.Println(" avgRT:", avgRT, " prob:", serverProb)
 		}
 	}()
 }
