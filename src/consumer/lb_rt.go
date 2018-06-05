@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"fmt"
+	"math"
 	"sync/atomic"
 	"time"
 )
@@ -25,12 +26,9 @@ func lbRT() {
 				count := invokeCount[i]
 				totalInvokes += count
 				if count > 0 {
-					avgRT[i] = float64(rt) / float64(count)
-					if avgRT[i] < 1 {
-						avgRT[i] = 1
-					}
+					avgRT[i] = math.Log(float64(rt)/float64(count) + 2)
 				} else {
-					avgRT[i] = 1
+					avgRT[i] = math.Log(2)
 				}
 				if i > 0 && avgRT[i] < avgRT[min] {
 					min = i
