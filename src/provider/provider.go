@@ -21,8 +21,9 @@ func Start(opts map[string]string) {
 	}
 	fmt.Println("Starting provider agent ...")
 
-	// Init pools
+	// Init pools and semaphore
 	util.InitPools(16, 64, []string{fmt.Sprintf("127.0.0.1:%d", dubboPort)})
+	util.InitSem(199)
 
 	// Register to etcd
 	etcd.Register(opts["etcd"], port)

@@ -12,23 +12,28 @@ import (
 var globalReqId uint64
 
 func Invoke(inv Invocation) ([]byte, error) {
+	util.AcquireSem()
 	cw := util.AcquireConn(0)
 	if err := writeRequest(cw.Conn, inv); err != nil {
 		cw.Conn.Close()
 		cw = util.NewConn(0)
 		if cw.Conn == nil {
 			fmt.Println("Failed to get conn")
+			util.ReleaseSem()
 			return nil, err
 		}
 		if err := writeRequest(cw.Conn, inv); err != nil {
-			cw.Conn.Close()
 			fmt.Println("Failed to write req:", err)
+			util.ReleaseSem()
+			cw.Conn.Close()
 			return nil, err
 		}
 	}
 	limit, err := cw.Conn.Read(cw.Buf)
 	if err != nil {
 		fmt.Println("Failed to read:", err)
+		util.ReleaseSem()
+		cw.Conn.Close()
 		return nil, err
 	}
 	bodyLen := int(binary.BigEndian.Uint32(cw.Buf[12:16]))
@@ -42,14 +47,18 @@ func Invoke(inv Invocation) ([]byte, error) {
 				read += i
 			} else {
 				fmt.Println("Failed to read body:", err)
+				util.ReleaseSem()
+				cw.Conn.Close()
 				return nil, err
 			}
 		}
 	}
+	util.ReleaseConn(0, cw)
+	util.ReleaseSem()
+
 	if cw.Buf[3] != 20 {
 		return nil, errors.New(fmt.Sprintf("Server respond with status %d", cw.Buf[3]))
 	}
-	util.ReleaseConn(0, cw)
 
 	if bodyLen > 0 {
 		var i, j int
